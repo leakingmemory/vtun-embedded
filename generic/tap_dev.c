@@ -1,7 +1,8 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -16,10 +17,6 @@
     GNU General Public License for more details.
  */
 
-/*
- * $Id: tap_dev.c,v 1.5.2.3 2016/10/01 21:27:51 mtbishop Exp $
- */ 
-
 #include "config.h"
 
 #include <unistd.h>
@@ -31,6 +28,7 @@
 
 #include "vtun.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 /* 
  * Allocate Ether TAP device, returns opened fd. 
@@ -63,13 +61,21 @@ int tap_close(int fd, char *dev)
 }
 
 /* Write frames to TAP device */
-int tap_write(int fd, char *buf, int len)
+int tap_write(int fd, LfdBuffer *buf)
 {
-    return write(fd, buf, len);
+    auto res = write(fd, buf->ptr, buf->size);
+    lfd_reset(buf);
+    return res;
 }
 
 /* Read frames from TAP device */
-int tap_read(int fd, char *buf, int len)
+int tap_read(int fd, LfdBuffer *buf)
 {
-    return read(fd, buf, len);
+    lfd_reset(buf);
+    lfd_ensure_capacity(buf, VTUN_FRAME_SIZE);
+    ssize_t rd = read(fd, buf->ptr, VTUN_FRAME_SIZE);
+    if (rd >= 0) {
+        buf->size = rd;
+    }
+    return rd;
 }

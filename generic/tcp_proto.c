@@ -1,7 +1,8 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: tcp_proto.c,v 1.7.2.3 2016/10/01 21:37:39 mtbishop Exp $
- */ 
 
 #include "config.h"
 
@@ -53,47 +50,66 @@
 
 #include "vtun.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
-int tcp_write(int fd, char *buf, int len)
+int tcp_write(int fd, LfdBuffer *buf, int flags)
 {
-     register char *ptr;
+	register char *ptr;
 
-     ptr = buf - sizeof(short);
+	if (buf->size > (VTUN_FRAME_SIZE + VTUN_FRAME_OVERHEAD)) {
+		buf->size = VTUN_FRAME_SIZE + VTUN_FRAME_OVERHEAD;
+	}
+	{
+		size_t len = buf->size | (flags & ~VTUN_FSIZE_MASK);
+		lfd_extend_below(buf, sizeof(short));
+		ptr = buf->ptr;
 
-     *((unsigned short *)ptr) = htons(len); 
-     len  = (len & VTUN_FSIZE_MASK) + sizeof(short);
+		*((unsigned short *)ptr) = htons(len);
+	}
 
-     return write_n(fd, ptr, len);
+	return write_n(fd, ptr, buf->size);
 }
 
-int tcp_read(int fd, char *buf)
+int tcp_read(int fd, LfdBuffer *buf)
 {
-     unsigned short len, flen;
-     register int rlen;     
+	unsigned short len, flen;
+	register int rlen;
 
-     /* Read frame size */
-     if( (rlen = read_n(fd, (char *)&len, sizeof(short)) ) <= 0)
-	return rlen;
+	/* Read frame size */
+	if( (rlen = read_n(fd, (char *)&len, sizeof(short)) ) <= 0) {
+		return -1;
+	}
 
-     len = ntohs(len);
-     flen = len & VTUN_FSIZE_MASK;
+	len = ntohs(len);
+	flen = len & VTUN_FSIZE_MASK;
 
-     if( flen > VTUN_FRAME_SIZE + VTUN_FRAME_OVERHEAD ){
-     	/* Oversized frame, drop it. */ 
-        while( flen ){
-	   len = min(flen, VTUN_FRAME_SIZE);
-           if( (rlen = read_n(fd, buf, len)) <= 0 )
-	      break;
-           flen -= rlen;
-        }                                                               
-	return VTUN_BAD_FRAME;
-     }	
+	if( flen > VTUN_FRAME_SIZE + VTUN_FRAME_OVERHEAD ){
+		/* Oversized frame, drop it. */
+		while( flen ){
+			len = min(flen, VTUN_FRAME_SIZE);
+			if (!lfd_ensure_capacity(buf, len)) {
+				return VTUN_BAD_FRAME;
+			}
+			if( (rlen = read_n(fd, buf->ptr, len)) <= 0 )
+				break;
+			flen -= rlen;
+		}
+		return VTUN_BAD_FRAME;
+	}
 
-     if( len & ~VTUN_FSIZE_MASK ){
-	/* Return flags */
-	return len;
-     }
+	if( len & ~VTUN_FSIZE_MASK ){
+		/* Return flags */
+		return len;
+	}
 
-     /* Read frame */
-     return read_n(fd, buf, flen);
+	/* Read frame */
+	if (!lfd_ensure_capacity(buf, flen)) {
+		return -1;
+	}
+	int res = read_n(fd, buf->ptr, flen);
+	if (res < 0) {
+		return res;
+	}
+	buf->size = res;
+	return res;
 }

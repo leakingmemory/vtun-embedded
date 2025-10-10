@@ -1,9 +1,10 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky. 
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: lfd_lzo.c,v 1.5.2.7 2016/10/01 21:46:01 mtbishop Exp $
- */ 
 
 /* LZO compression module */
 
@@ -32,6 +29,7 @@
 #include "vtun.h"
 #include "linkfd.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 #ifdef HAVE_LZO
 
@@ -39,7 +37,7 @@
 #include "lzo1x.h"
 #include "lzoutil.h"
 
-static lzo_byte *zbuf;
+static LfdBuffer zbuf;
 static lzo_voidp wmem;
 static int zbuf_size = VTUN_FRAME_SIZE * VTUN_FRAME_SIZE / 64 + 16 + 3;
 
@@ -72,7 +70,7 @@ static int alloc_lzo(struct vtun_host *host)
 	vtun_syslog(LOG_ERR,"Can't initialize compressor");
 	return 1;
      }	
-     if( !(zbuf = lfd_alloc(zbuf_size)) ){
+     if( (zbuf = lfd_alloc(zbuf_size)).ptr == NULL ){
 	vtun_syslog(LOG_ERR,"Can't allocate buffer for the compressor");
 	return 1;
      }	
@@ -93,7 +91,7 @@ static int alloc_lzo(struct vtun_host *host)
 
 static int free_lzo()
 {
-     lfd_free(zbuf); zbuf = NULL;
+     lfd_free(&zbuf);
      lzo_free(wmem); wmem = NULL;
      return 0;
 }
@@ -102,32 +100,44 @@ static int free_lzo()
  * This functions _MUST_ consume all incoming bytes in one pass,
  * that's why we expand buffer dynamicly.
  */  
-static int comp_lzo(int len, char *in, char **out)
+static int comp_lzo(LfdBuffer *buf)
 { 
      lzo_uint zlen = 0;    
      int err;
      
-     if( (err=lzo1x_compress((void *)in,len,zbuf,&zlen,wmem)) != LZO_E_OK ){
+     if( (err=lzo1x_compress((void *)buf->ptr,buf->size,(lzo_byte *) zbuf.ptr,&zlen,wmem)) != LZO_E_OK ){
         vtun_syslog(LOG_ERR,"Compress error %d",err);
         return -1;
      }
 
-     *out = (void *)zbuf;
+     lfd_reset(buf);
+     if (!lfd_ensure_capacity(buf,zlen)) {
+         vtun_syslog(LOG_ERR,"Can't expand compression buffer");
+         return -1;
+     }
+     memcpy(buf->ptr,zbuf.ptr,zlen);
+     buf->size = zlen;
      return zlen;
 }
 
-static int decomp_lzo(int len, char *in, char **out)
+static int decomp_lzo(LfdBuffer *buf)
 {
      lzo_uint zlen = 0;
      int err;
 
-     if( (err=lzo1x_decompress((void *)in,len,zbuf,&zlen,wmem)) != LZO_E_OK ){
+     if( (err=lzo1x_decompress((void *)buf->ptr,buf->size,(lzo_byte *) zbuf.ptr,&zlen,wmem)) != LZO_E_OK ){
         vtun_syslog(LOG_ERR,"Decompress error %d",err);
         return -1;
      }
 
-     *out = (void *) zbuf;
-     return zlen;
+    lfd_reset(buf);
+    if (!lfd_ensure_capacity(buf,zlen)) {
+        vtun_syslog(LOG_ERR,"Can't expand compression buffer");
+        return -1;
+    }
+    memcpy(buf->ptr,zbuf.ptr,zlen);
+    buf->size = zlen;
+    return zlen;
 }
 
 struct lfd_mod lfd_lzo = {

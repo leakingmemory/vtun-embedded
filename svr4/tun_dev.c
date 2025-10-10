@@ -1,9 +1,10 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky. 
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: tun_dev.c,v 1.5.2.3 2016/10/01 21:46:01 mtbishop Exp $
- */ 
 
 #include "config.h"
 
@@ -60,6 +57,7 @@
 
 #include "vtun.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 static int ip_fd = -1;
 
@@ -158,20 +156,30 @@ int tun_close(int fd, char *dev)
     return 0;
 }
 
-int tun_write(int fd, char *buf, int len)
+int tun_write(int fd, LfdBuffer *buf)
 {
     struct strbuf sbuf;
-    sbuf.len = len;      
-    sbuf.buf = buf;      
-    return putmsg(fd, NULL, &sbuf, 0) >=0 ? sbuf.len : -1;
+    sbuf.len = buf->size;
+    sbuf.buf = buf->ptr;
+    int res = putmsg(fd, NULL, &sbuf, 0) >=0 ? sbuf.len : -1;
+    lfd_reset(buf);
+    return res;
 }
 
-int tun_read(int fd, char *buf, int len)
+int tun_read(int fd, LfdBuffer *buf)
 {
     struct strbuf sbuf;
     int f = 0;
 
-    sbuf.maxlen = len;      
-    sbuf.buf = buf;      
-    return getmsg(fd, NULL, &sbuf, &f) >=0 ? sbuf.len : -1;
+    lfd_reset(buf);
+    if (!lfd_ensure_capacity(buf, VTUN_FRAME_SIZE)) {
+         return -1;
+    }
+    sbuf.maxlen = VTUN_FRAME_SIZE;
+    sbuf.buf = buf->ptr;
+    int res = getmsg(fd, NULL, &sbuf, &f) >=0 ? sbuf.len : -1;
+    if (res >= 0) {
+         buf->size = res;
+    }
+    return res;
 }

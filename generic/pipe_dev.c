@@ -1,9 +1,10 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky. 
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: pipe_dev.c,v 1.4.2.3 2016/10/01 21:27:51 mtbishop Exp $
- */ 
 
 #include "config.h"
 
@@ -32,6 +29,7 @@
 
 #include "vtun.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 /* 
  * Create pipe. Return open fd. 
@@ -42,13 +40,21 @@ int pipe_open(int *fd)
 }
 
 /* Write frames to pipe */
-int pipe_write(int fd, char *buf, int len)
+int pipe_write(int fd, LfdBuffer *buf)
 {
-    return write_n(fd, buf, len);
+    int res = write_n(fd, buf->ptr, buf->size);
+    lfd_reset(buf);
+    return res;
 }
 
 /* Read frames from pipe */
-int pipe_read(int fd, char *buf, int len)
+int pipe_read(int fd, LfdBuffer *buf)
 {
-    return read(fd, buf, len);
+    lfd_reset(buf);
+    lfd_ensure_capacity(buf, VTUN_FRAME_SIZE);
+    ssize_t rd = read(fd, buf->ptr, VTUN_FRAME_SIZE);
+    if (rd >= 0) {
+        buf->size = rd;
+    }
+    return rd;
 }

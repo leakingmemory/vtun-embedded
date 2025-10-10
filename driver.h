@@ -1,7 +1,8 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -16,45 +17,44 @@
     GNU General Public License for more details.
  */
 
-/*
- * $Id: driver.h,v 1.4.2.4 2016/10/01 21:27:51 mtbishop Exp $
- */ 
 #ifndef _DRIVER_H
 #define _DRIVER_H
+
+#include "linkfd_types.h"
 
 /* Definitions for device and protocol drivers 
  * Interface will be completely rewritten in 
  * future versions.
  */
 
-extern int (*dev_write)(int fd, char *buf, int len);
-extern int (*dev_read)(int fd, char *buf, int len);
+extern int (*dev_write)(int fd, LfdBuffer *buf);
+extern int (*dev_read)(int fd, LfdBuffer *buf);
 
-extern int (*proto_write)(int fd, char *buf, int len);
-extern int (*proto_read)(int fd, char *buf);
+extern int (*proto_write)(int fd, LfdBuffer *buf, int flags);
+extern int (*proto_read)(int fd, LfdBuffer *buf);
 
 int tun_open(char *dev);
 int tun_close(int fd, char *dev);
-int tun_write(int fd, char *buf, int len);
-int tun_read(int fd, char *buf, int len);
+int tun_write(int fd, LfdBuffer *buf);
+int tun_read(int fd, LfdBuffer *buf);
 
 int tap_open(char *dev);
 int tap_close(int fd, char *dev);
-int tap_write(int fd, char *buf, int len);
-int tap_read(int fd, char *buf, int len);
+int tap_write(int fd, LfdBuffer *buf);
+int tap_read(int fd, LfdBuffer *buf);
 
 int pty_open(char *dev);
-int pty_write(int fd, char *buf, int len);
-int pty_read(int fd, char *buf, int len);
+int pty_write(int fd, LfdBuffer *buf);
+int pty_read(int fd, LfdBuffer *buf);
 
 int pipe_open(int *fd);
-int pipe_write(int fd, char *buf, int len);
-int pipe_read(int fd, char *buf, int len);
+int pipe_write(int fd, LfdBuffer *buf);
+int pipe_read(int fd, LfdBuffer *buf);
 
-int tcp_write(int fd, char *buf, int len);
-int tcp_read(int fd, char *buf);
+int tcp_write(int fd, LfdBuffer *buf, int flags);
+int tcp_read(int fd, LfdBuffer *buf);
 
-int udp_write(int fd, char *buf, int len);
-int udp_read(int fd, char *buf);
+int udp_write(int fd, LfdBuffer *buf, int flags);
+int udp_read(int fd, LfdBuffer *buf);
 
 #endif

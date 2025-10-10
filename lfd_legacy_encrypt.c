@@ -1,9 +1,10 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky. 
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,11 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: lfd_legacy_encrypt.c,v 1.1.4.4 2016/10/01 21:27:51 mtbishop Exp $
- * Code added wholesale temporarily from lfd_encrypt 1.2.2.8
- */ 
 
 /*
    Encryption module uses software developed by the OpenSSL Project
@@ -46,6 +42,7 @@
 #include "vtun.h"
 #include "linkfd.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 #ifdef HAVE_SSL
 
@@ -62,11 +59,11 @@
 #define ENC_KEY_SIZE 16
 
 static BF_KEY key;
-static char * enc_buf;
+static LfdBuffer enc_buf;
 
 static int alloc_legacy_encrypt(struct vtun_host *host)
 {
-   if( !(enc_buf = lfd_alloc(ENC_BUF_SIZE)) ){
+   if ((enc_buf = lfd_alloc(ENC_BUF_SIZE)).ptr == NULL) {
       vtun_syslog(LOG_ERR,"Can't allocate buffer for legacy encryptor");
       return -1;
    }
@@ -79,48 +76,54 @@ static int alloc_legacy_encrypt(struct vtun_host *host)
 
 static int free_legacy_encrypt()
 {
-   lfd_free(enc_buf); enc_buf = NULL;
+   lfd_free(&enc_buf);
    return 0;
 }
 
-static int legacy_encrypt_buf(int len, char *in, char **out)
+static int legacy_encrypt_buf(LfdBuffer *buf)
 { 
    register int pad, p;
-   register char *in_ptr = in, *out_ptr = enc_buf;
 
    /* 8 - ( len % 8 ) */
-   pad = (~len & 0x07) + 1; p = 8 - pad;
+   {
+      size_t len = buf->size;
+      pad = (~len & 0x07) + 1; p = 8 - pad;
 
-   memset(out_ptr, 0, pad);
-   *out_ptr = (char) pad;
-   memcpy(out_ptr + pad, in_ptr, p);  
-   BF_ecb_encrypt(out_ptr, out_ptr, &key, BF_ENCRYPT);
-   out_ptr += 8; in_ptr += p; 
-   len = len - p;
 
-   for (p=0; p < len; p += 8)
-      BF_ecb_encrypt(in_ptr + p,  out_ptr + p, &key, BF_ENCRYPT);
+      if (!lfd_extend_below(buf, pad)) {
+         return 0;
+      }
+      memset(buf->ptr, 0, pad);
+      *((char *) buf->ptr) = (char) pad;
+   }
 
-   *out = enc_buf;
-   return len + 8;
+   if (!lfd_ensure_capacity(&enc_buf, buf->size)) {
+      return 0;
+   }
+   for (size_t off=0; off < buf->size; off += 8)
+      BF_ecb_encrypt(buf->ptr + off,  enc_buf.ptr + off, &key, BF_ENCRYPT);
+
+   memcpy(buf->ptr, enc_buf.ptr, buf->size);
+
+   return buf->size;
 }
 
-static int legacy_decrypt_buf(int len, char *in, char **out)
+static int legacy_decrypt_buf(LfdBuffer *buf)
 {
-   register int p;
+   for (size_t p = 0; p < buf->size; p += 8) {
+      void *blk = lfd_get_ptr(buf, p);
+      BF_ecb_encrypt(blk, blk, &key, BF_DECRYPT);
+   }
 
-   for (p = 0; p < len; p += 8)
-      BF_ecb_encrypt(in + p, in + p, &key, BF_DECRYPT);
-
-   p = *in;
+   int p = ((char *) buf->ptr)[0];
    if (p < 1 || p > 8) {
       vtun_syslog(LOG_INFO, "legacy_decrypt_buf: bad pad length");
       return 0;
    }
 
-   *out = in + p;
+   lfd_reduce_below(buf, p);
 
-   return len - p;
+   return buf->size;
 }
 
 /* 

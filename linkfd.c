@@ -1,9 +1,10 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky. 
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -14,10 +15,6 @@
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
- */
-
-/*
- * $Id: linkfd.c,v 1.13.2.7 2016/10/01 21:27:51 mtbishop Exp $
  */
 
 #include "config.h"
@@ -49,6 +46,7 @@
 #include "linkfd.h"
 #include "lib.h"
 #include "driver.h"
+#include "linkfd_buffers.h"
 
 /* used by lfd_encrypt */
 int send_a_packet = 0;
@@ -105,29 +103,25 @@ static int lfd_free_mod(void)
 }
 
  /* Run modules down (from head to tail) */
-static inline int lfd_run_down(int len, char *in, char **out)
+static inline int lfd_run_down(int len, LfdBuffer *buf)
 {
      register struct lfd_mod *mod;
      
-     *out = in;
      for(mod = lfd_mod_head; mod && len > 0; mod = mod->next )
         if( mod->encode ){
-           len = (mod->encode)(len, in, out);
-           in = *out;
+           len = (mod->encode)(buf);
         }
      return len;
 }
 
 /* Run modules up (from tail to head) */
-static inline int lfd_run_up(int len, char *in, char **out)
+static inline int lfd_run_up(int len, LfdBuffer *buf)
 {
      register struct lfd_mod *mod;
      
-     *out = in;
      for(mod = lfd_mod_tail; mod && len > 0; mod = mod->prev )
         if( mod->decode ){
-	   len = (mod->decode)(len, in, out);
-           in = *out;
+	   len = (mod->decode)(buf);
 	}
      return len;
 }
@@ -215,148 +209,148 @@ static void sig_usr1(int sig)
      lfd_host->stat.comp_in = lfd_host->stat.comp_out = 0; 
 }
 
-static int lfd_linker(void)
+int lfd_linker(void)
 {
-     int fd1 = lfd_host->rmt_fd;
-     int fd2 = lfd_host->loc_fd; 
-     register int len, fl;
-     struct timeval tv;
-     char *buf, *out;
-     fd_set fdset;
-     int maxfd, idle = 0, tmplen;
+	int fd1 = lfd_host->rmt_fd;
+	int fd2 = lfd_host->loc_fd; 
+	register int len, fl;
+	struct timeval tv;
+	LfdBuffer buf;
+	fd_set fdset;
+	int maxfd, idle = 0, tmplen;
 
-     if( !(buf = lfd_alloc(VTUN_FRAME_SIZE + VTUN_FRAME_OVERHEAD)) ){
-	vtun_syslog(LOG_ERR,"Can't allocate buffer for the linker"); 
-        return 0; 
-     }
+	if ((buf = lfd_alloc(VTUN_FRAME_SIZE + VTUN_FRAME_OVERHEAD)).ptr == NULL) {
+		vtun_syslog(LOG_ERR,"Can't allocate buffer for the linker"); 
+		return 0; 
+	}
 	
-     /* Delay sending of first UDP packet over broken NAT routers
-	because we will probably be disconnected.  Wait for the remote
-	end to send us something first, and use that connection. */
-     if (!VTUN_USE_NAT_HACK(lfd_host))
-        proto_write(fd1, buf, VTUN_ECHO_REQ);
+	/* Delay sending of first UDP packet over broken NAT routers
+	   because we will probably be disconnected.  Wait for the remote
+	   end to send us something first, and use that connection. */
+	if (!VTUN_USE_NAT_HACK(lfd_host))
+		proto_write(fd1, &buf, VTUN_ECHO_REQ);
 
-     maxfd = (fd1 > fd2 ? fd1 : fd2) + 1;
+	maxfd = (fd1 > fd2 ? fd1 : fd2) + 1;
 
-     linker_term = 0;
-     while( !linker_term ){
-	errno = 0;
+	linker_term = 0;
+	while( !linker_term ){
+		errno = 0;
 
-        /* Wait for data */
-        FD_ZERO(&fdset);
-	FD_SET(fd1, &fdset);
-	FD_SET(fd2, &fdset);
+		/* Wait for data */
+		FD_ZERO(&fdset);
+		FD_SET(fd1, &fdset);
+		FD_SET(fd2, &fdset);
 
- 	tv.tv_sec  = lfd_host->ka_interval;
-	tv.tv_usec = 0;
+		tv.tv_sec  = lfd_host->ka_interval;
+		tv.tv_usec = 0;
 
-	if( (len = select(maxfd, &fdset, NULL, NULL, &tv)) < 0 ){
-	   if( errno != EAGAIN && errno != EINTR )
-	      break;
-	   else
-	      continue;
-	} 
+		if( (len = select(maxfd, &fdset, NULL, NULL, &tv)) < 0 ){
+			if( errno != EAGAIN && errno != EINTR )
+				break;
+			else
+				continue;
+		} 
 
-	if( ka_need_verify ){
-	  if( idle > lfd_host->ka_maxfail ){
-	    vtun_syslog(LOG_INFO,"Session %s network timeout", lfd_host->host);
-	    break;
-	  }
-	  if (idle++ > 0) {  /* No input frames, check connection with ECHO */
-	    if( proto_write(fd1, buf, VTUN_ECHO_REQ) < 0 ){
-	      vtun_syslog(LOG_ERR,"Failed to send ECHO_REQ");
-	      break;
-	    }
-	  }
-	  ka_need_verify = 0;
+		if( ka_need_verify ){
+			if( idle > lfd_host->ka_maxfail ){
+				vtun_syslog(LOG_INFO,"Session %s network timeout", lfd_host->host);
+				break;
+			}
+			if (idle++ > 0) {  /* No input frames, check connection with ECHO */
+				if( proto_write(fd1, &buf, VTUN_ECHO_REQ) < 0 ){
+					vtun_syslog(LOG_ERR,"Failed to send ECHO_REQ");
+					break;
+				}
+			}
+			ka_need_verify = 0;
+		}
+
+		if (send_a_packet) {
+			send_a_packet = 0;
+			tmplen = 1;
+			lfd_host->stat.byte_out += tmplen; 
+			if( (tmplen=lfd_run_down(tmplen,&buf)) == -1 )
+				break;
+			if( tmplen && proto_write(fd1, &buf, 0) < 0 )
+				break;
+			lfd_host->stat.comp_out += tmplen; 
+		}
+
+		/* Read frames from network(fd1), decode and pass them to 
+		 * the local device (fd2) */
+		if( FD_ISSET(fd1, &fdset) && lfd_check_up() ){
+			idle = 0;  ka_need_verify = 0;
+			if( (len=proto_read(fd1, &buf)) <= 0 )
+				break;
+
+			/* Handle frame flags */
+			fl = len & ~VTUN_FSIZE_MASK;
+			len = len & VTUN_FSIZE_MASK;
+			if( fl ){
+				if( fl==VTUN_BAD_FRAME ){
+					vtun_syslog(LOG_ERR, "Received bad frame");
+					continue;
+				}
+				if( fl==VTUN_ECHO_REQ ){
+					/* Send ECHO reply */
+					if( proto_write(fd1, &buf, VTUN_ECHO_REP) < 0 )
+						break;
+					continue;
+				}
+				if( fl==VTUN_ECHO_REP ){
+					/* Just ignore ECHO reply, ka_need_verify==0 already */
+					continue;
+				}
+				if( fl==VTUN_CONN_CLOSE ){
+					vtun_syslog(LOG_INFO,"Connection closed by other side");
+					break;
+				}
+			}   
+
+			lfd_host->stat.comp_in += len; 
+			if( (len=lfd_run_up(len,&buf)) == -1 )
+				break;	
+			if( len && dev_write(fd2,&buf) < 0 ){
+				if( errno != EAGAIN && errno != EINTR )
+					break;
+				else
+					continue;
+			}
+			lfd_host->stat.byte_in += len; 
+		}
+
+		/* Read data from the local device(fd2), encode and pass it to 
+		 * the network (fd1) */
+		if( FD_ISSET(fd2, &fdset) && lfd_check_down() ){
+			if( (len = dev_read(fd2, &buf)) < 0 ){
+				if( errno != EAGAIN && errno != EINTR )
+					break;
+				else
+					continue;
+			}
+			if( !len ) break;
+		
+			lfd_host->stat.byte_out += len; 
+			if( (len=lfd_run_down(len,&buf)) == -1 )
+				break;
+			if( len && proto_write(fd1, &buf, 0) < 0 )
+				break;
+			lfd_host->stat.comp_out += len; 
+		}
+	}
+	if( !linker_term && errno )
+		vtun_syslog(LOG_INFO,"%s (%d)", strerror(errno), errno);
+
+	if (linker_term == VTUN_SIG_TERM) {
+		lfd_host->persist = 0;
 	}
 
-	if (send_a_packet)
-        {
-           send_a_packet = 0;
-           tmplen = 1;
-	   lfd_host->stat.byte_out += tmplen; 
-	   if( (tmplen=lfd_run_down(tmplen,buf,&out)) == -1 )
-	      break;
-	   if( tmplen && proto_write(fd1, out, tmplen) < 0 )
-	      break;
-	   lfd_host->stat.comp_out += tmplen; 
-        }
+	/* Notify other end about our close */
+	lfd_reset(&buf);
+	proto_write(fd1, &buf, VTUN_CONN_CLOSE);
+	lfd_free(&buf);
 
-	/* Read frames from network(fd1), decode and pass them to 
-         * the local device (fd2) */
-	if( FD_ISSET(fd1, &fdset) && lfd_check_up() ){
-	   idle = 0;  ka_need_verify = 0;
-	   if( (len=proto_read(fd1, buf)) <= 0 )
-	      break;
-
-	   /* Handle frame flags */
-	   fl = len & ~VTUN_FSIZE_MASK;
-           len = len & VTUN_FSIZE_MASK;
-	   if( fl ){
-	      if( fl==VTUN_BAD_FRAME ){
-		 vtun_syslog(LOG_ERR, "Received bad frame");
-		 continue;
-	      }
-	      if( fl==VTUN_ECHO_REQ ){
-		 /* Send ECHO reply */
-	 	 if( proto_write(fd1, buf, VTUN_ECHO_REP) < 0 )
-		    break;
-		 continue;
-	      }
-   	      if( fl==VTUN_ECHO_REP ){
-		 /* Just ignore ECHO reply, ka_need_verify==0 already */
-		 continue;
-	      }
-	      if( fl==VTUN_CONN_CLOSE ){
-	         vtun_syslog(LOG_INFO,"Connection closed by other side");
-		 break;
-	      }
-	   }   
-
-	   lfd_host->stat.comp_in += len; 
-	   if( (len=lfd_run_up(len,buf,&out)) == -1 )
-	      break;	
-	   if( len && dev_write(fd2,out,len) < 0 ){
-              if( errno != EAGAIN && errno != EINTR )
-                 break;
-              else
-                 continue;
-           }
-	   lfd_host->stat.byte_in += len; 
-	}
-
-	/* Read data from the local device(fd2), encode and pass it to 
-         * the network (fd1) */
-	if( FD_ISSET(fd2, &fdset) && lfd_check_down() ){
-	   if( (len = dev_read(fd2, buf, VTUN_FRAME_SIZE)) < 0 ){
-	      if( errno != EAGAIN && errno != EINTR )
-	         break;
-	      else
-		 continue;
-	   }
-	   if( !len ) break;
-	
-	   lfd_host->stat.byte_out += len; 
-	   if( (len=lfd_run_down(len,buf,&out)) == -1 )
-	      break;
-	   if( len && proto_write(fd1, out, len) < 0 )
-	      break;
-	   lfd_host->stat.comp_out += len; 
-	}
-     }
-     if( !linker_term && errno )
-	vtun_syslog(LOG_INFO,"%s (%d)", strerror(errno), errno);
-
-     if (linker_term == VTUN_SIG_TERM) {
-       lfd_host->persist = 0;
-     }
-
-     /* Notify other end about our close */
-     proto_write(fd1, buf, VTUN_CONN_CLOSE);
-     lfd_free(buf);
-
-     return 0;
+	return 0;
 }
 
 /* Link remote and local file descriptors */ 

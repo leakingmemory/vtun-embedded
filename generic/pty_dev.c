@@ -1,7 +1,8 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: pty_dev.c,v 1.4.2.3 2016/10/01 21:37:39 mtbishop Exp $
- */ 
 
 #include "config.h"
 
@@ -36,6 +33,7 @@
 
 #include "vtun.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 /* 
  * Allocate pseudo tty, returns master side fd. 
@@ -89,13 +87,21 @@ int pty_open(char *sl_name)
 }
 
 /* Write frames to PTY device */
-int pty_write(int fd, char *buf, int len)
+int pty_write(int fd, LfdBuffer *buf)
 {
-    return write_n(fd, buf, len);
+    int res = write_n(fd, buf->ptr, buf->size);
+	lfd_reset(buf);
+	return res;
 }
 
 /* Read frames from PTY device */
-int pty_read(int fd, char *buf, int len)
+int pty_read(int fd, LfdBuffer *buf)
 {
-    return read(fd, buf, len);
+	lfd_reset(buf);
+	lfd_ensure_capacity(buf, VTUN_FRAME_SIZE);
+    ssize_t rd = read(fd, buf->ptr, VTUN_FRAME_SIZE);
+	if (rd >= 0) {
+		buf->size = rd;
+	}
+	return rd;
 }

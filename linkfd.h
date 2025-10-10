@@ -1,9 +1,10 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky. 
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,12 +17,11 @@
     GNU General Public License for more details.
  */
 
-/*
- * $Id: linkfd.h,v 1.4.2.4 2016/10/01 21:37:39 mtbishop Exp $
- */ 
-
 #ifndef _LINKFD_H
 #define _LINKFD_H
+
+#include <string.h>
+#include "linkfd_types.h"
 
 /* Priority of the process in the link_fd function */
 /* Never set the priority to -19 without stating a good reason.
@@ -30,41 +30,6 @@
  * -1 will do nicely.
  */
 #define LINKFD_PRIO -1
-/* Frame alloc/free */
-#define LINKFD_FRAME_RESERV 128
-#define LINKFD_FRAME_APPEND 64
-
-static inline void * lfd_alloc(size_t size)
-{
-     register char * buf;
-
-     size += LINKFD_FRAME_RESERV + LINKFD_FRAME_APPEND;
-
-     if( !(buf = malloc(size)) )
-        return NULL;
-
-     return buf+LINKFD_FRAME_RESERV; 
-}
-
-static inline void * lfd_realloc(void *buf, size_t size)
-{
-     unsigned char *ptr = buf;
-
-     ptr  -= LINKFD_FRAME_RESERV;
-     size += LINKFD_FRAME_RESERV;
-
-     if( !(ptr = realloc(ptr, size)) )
-        return NULL;
-
-     return ptr+LINKFD_FRAME_RESERV; 
-}
-
-static inline void lfd_free(void *buf)
-{
-     unsigned char *ptr = buf;
-
-     free(ptr-LINKFD_FRAME_RESERV);
-}
 
 int linkfd(struct vtun_host *host);
 
@@ -72,9 +37,9 @@ int linkfd(struct vtun_host *host);
 struct lfd_mod {
    char *name;
    int (*alloc)(struct vtun_host *host);
-   int (*encode)(int len, char *in, char **out);
+   int (*encode)(LfdBuffer *buf);
    int (*avail_encode)(void);
-   int (*decode)(int len, char *in, char **out);
+   int (*decode)(LfdBuffer *buf);
    int (*avail_decode)(void);
    int (*free)(void);
 

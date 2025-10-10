@@ -1,7 +1,8 @@
-/*  
-    VTun - Virtual Tunnel over TCP/IP network. 
+/*
+    VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -14,10 +15,6 @@
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
- */
-
-/*
- * $Id: lfd_shaper.c,v 1.7.2.4 2016/10/01 21:27:51 mtbishop Exp $
  */
 
 #include "config.h"
@@ -60,13 +57,11 @@ static int shaper_init(struct vtun_host *host)
 }
 
 /* Shaper counter */
-static int shaper_counter(int len, char *in, char **out)
+static int shaper_counter(LfdBuffer *buf)
 { 
      /* Just count incoming bytes */
-     bytes += len;
-
-     *out = in;
-     return len;
+     bytes += buf->size;
+     return buf->size;
 }
 
 /* Convert tv struct to milisec */

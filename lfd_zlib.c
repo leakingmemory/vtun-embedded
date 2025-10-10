@@ -1,9 +1,10 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky. 
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: lfd_zlib.c,v 1.5.2.4 2016/10/01 21:46:01 mtbishop Exp $
- */ 
 
 /* ZLIB compression module */
 
@@ -32,13 +29,14 @@
 #include "vtun.h"
 #include "linkfd.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 #ifdef HAVE_ZLIB
 
 #include <zlib.h>
 
 static z_stream zi, zd; 
-static unsigned char *zbuf;
+static LfdBuffer zbuf;
 static int zbuf_size = VTUN_FRAME_SIZE + 200;
 
 /* 
@@ -64,7 +62,7 @@ static int zlib_alloc(struct vtun_host *host)
 	vtun_syslog(LOG_ERR,"Can't initialize decompressor");
 	return 1;
      }	
-     if( !(zbuf = (void *) lfd_alloc(zbuf_size)) ){
+     if ((zbuf = lfd_alloc(zbuf_size)).ptr == NULL) {
 	vtun_syslog(LOG_ERR,"Can't allocate buffer for the compressor");
 	return 1;
      }
@@ -83,16 +81,16 @@ static int zlib_free()
      deflateEnd(&zd);
      inflateEnd(&zi);
 
-     lfd_free(zbuf); zbuf = NULL;
+     lfd_free(&zbuf);
 
      return 0;
 }
 
 static int expand_zbuf(z_stream *zs, int len)
 {
-     if( !(zbuf = lfd_realloc(zbuf,zbuf_size+len)) )
+     if( !lfd_realloc(&zbuf,zbuf_size+len) )
          return -1;
-     zs->next_out = zbuf + zbuf_size;
+     zs->next_out = zbuf.ptr + zbuf_size;
      zs->avail_out = len;
      zbuf_size += len;     
 
@@ -104,14 +102,14 @@ static int expand_zbuf(z_stream *zs, int len)
  * That's why we expand buffer dynamically.
  * Practice shows that buffer will not grow larger that 16K.
  */  
-static int zlib_comp(int len, char *in, char **out)
+static int zlib_comp(LfdBuffer *buf)
 { 
      int oavail, olen = 0;    
      int err;
  
-     zd.next_in = (void *) in;
-     zd.avail_in = len;
-     zd.next_out = (void *) zbuf;
+     zd.next_in = buf->ptr;
+     zd.avail_in = buf->size;
+     zd.next_out = zbuf.ptr;
      zd.avail_out = zbuf_size;
     
      while(1) {
@@ -129,24 +127,29 @@ static int zlib_comp(int len, char *in, char **out)
            return -1;
 	}
      }
-     *out = (void *) zbuf;
+     if (!lfd_ensure_capacity(buf, olen)) {
+           lfd_reset(buf);
+           return -1;
+     }
+     memcpy(buf->ptr, zbuf.ptr, olen);
+     buf->size = olen;
      return olen;
 }
 
-static int zlib_decomp(int len, char *in, char **out)
+static int zlib_decomp(LfdBuffer *buf)
 {
      int oavail = 0, olen = 0;     
      int err;
 
-     zi.next_in = (void *) in;
-     zi.avail_in = len;
-     zi.next_out = (void *) zbuf;
+     zi.next_in = buf->ptr;
+     zi.avail_in = buf->size;
+     zi.next_out = (void *) zbuf.ptr;
      zi.avail_out = zbuf_size;
 
      while(1) {
         oavail = zi.avail_out;
         if( (err=inflate(&zi, Z_SYNC_FLUSH)) != Z_OK ) {
-           vtun_syslog(LOG_ERR,"Inflate error %d len %d", err, len);
+           vtun_syslog(LOG_ERR,"Inflate error %d len %d", err, buf->size);
            return -1;
         }
         olen += oavail - zi.avail_out;
@@ -157,7 +160,12 @@ static int zlib_decomp(int len, char *in, char **out)
            return -1;
 	}
      }
-     *out = (void *) zbuf;
+     if (!lfd_ensure_capacity(buf, olen)) {
+         lfd_reset(buf);
+         return -1;
+     }
+     memcpy(buf->ptr, zbuf.ptr, olen);
+     buf->size = olen;
      return olen;
 }
 

@@ -1,9 +1,10 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky. 
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: tunnel.c,v 1.14.2.4 2016/10/01 21:27:51 mtbishop Exp $
- */ 
 
 #include "config.h"
 
@@ -56,11 +53,11 @@
 #include "netlib.h"
 #include "driver.h"
 
-int (*dev_write)(int fd, char *buf, int len);
-int (*dev_read)(int fd, char *buf, int len);
+int (*dev_write)(int fd, LfdBuffer *buf);
+int (*dev_read)(int fd, LfdBuffer *buf);
 
-int (*proto_write)(int fd, char *buf, int len);
-int (*proto_read)(int fd, char *buf);
+int (*proto_write)(int fd, LfdBuffer *buf, int flags);
+int (*proto_read)(int fd, LfdBuffer *buf);
 
 /* Initialize and start the tunnel.
    Returns:

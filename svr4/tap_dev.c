@@ -1,7 +1,8 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: tap_dev.c,v 1.4.2.3 2016/10/01 21:46:01 mtbishop Exp $
- */ 
 
 #include "config.h"
 
@@ -60,6 +57,7 @@
 
 #include "vtun.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 /* 
  * Allocate Ether TAP device, returns opened fd. 
@@ -125,20 +123,30 @@ int tap_close(int fd, char *dev)
     return close(fd);
 }
 
-int tap_write(int fd, char *buf, int len)
+int tap_write(int fd, LfdBuffer *buf)
 {
     struct strbuf sbuf;
-    sbuf.len = len;      
-    sbuf.buf = buf;      
-    return putmsg(fd, NULL, &sbuf, 0) >= 0 ? sbuf.len : -1;
+    sbuf.len = buf->size;
+    sbuf.buf = buf->ptr;
+    int res = putmsg(fd, NULL, &sbuf, 0) >= 0 ? sbuf.len : -1;
+    lfd_reset(buf);
+    return res;
 }
 
-int tap_read(int fd, char *buf, int len)
+int tap_read(int fd, LfdBuffer *buf)
 {
     struct strbuf sbuf;
     int f = 0;
 
-    sbuf.maxlen = len;      
+    lfd_reset(buf);
+    if (!lfd_ensure_capacity(buf, VTUN_FRAME_SIZE)) {
+         return -1;
+    }
+    sbuf.maxlen = VTUN_FRAME_SIZE;
     sbuf.buf = buf;      
-    return getmsg(fd, NULL, &sbuf, &f) >= 0 ? sbuf.len : -1;
+    int res = getmsg(fd, NULL, &sbuf, &f) >= 0 ? sbuf.len : -1;
+    if (res >= 0) {
+        buf->size = res;
+    }
+    return res;
 }

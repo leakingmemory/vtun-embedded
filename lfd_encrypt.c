@@ -1,7 +1,8 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -52,6 +53,7 @@
 #include "vtun.h"
 #include "linkfd.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 #ifdef HAVE_SSL
 
@@ -69,8 +71,7 @@
 #define ENC_KEY_SIZE 16
 
 static BF_KEY key;
-static char * enc_buf;
-static char * dec_buf;
+LfdBuffer tmp_buf;
 
 #define CIPHER_INIT		0
 #define CIPHER_CODE		1	
@@ -105,10 +106,10 @@ static EVP_CIPHER_CTX *ctx_dec;	/* decrypt */
 static EVP_CIPHER_CTX *ctx_enc_ecb;	/* sideband ecb encrypt */
 static EVP_CIPHER_CTX *ctx_dec_ecb;	/* sideband ecb decrypt */
 
-static int send_msg(int len, char *in, char **out);
-static int recv_msg(int len, char *in, char **out);
-static int send_ib_mesg(int *len, char **in);
-static int recv_ib_mesg(int *len, char **in);
+static int send_msg(LfdBuffer *buf);
+static int recv_msg(LfdBuffer *buf);
+static int send_ib_mesg(LfdSubBuffer *buf);
+static int recv_ib_mesg(LfdBuffer *buf);
 
 static int prep_key(char **key, int size, struct vtun_host *host)
 {
@@ -168,12 +169,8 @@ static int alloc_encrypt(struct vtun_host *host)
    enc_init_first_time = 1;   
    dec_init_first_time = 1;   
 
-   if( !(enc_buf = lfd_alloc(ENC_BUF_SIZE)) ){
-      vtun_syslog(LOG_ERR,"Can't allocate buffer for encryptor");
-      return -1;
-   }
-   if( !(dec_buf = lfd_alloc(ENC_BUF_SIZE)) ){
-      vtun_syslog(LOG_ERR,"Can't allocate buffer for decryptor");
+   if ((tmp_buf = lfd_alloc(ENC_BUF_SIZE)).ptr == NULL) {
+      vtun_syslog(LOG_ERR,"Can't allocate tmp buffer for encryptor/decryptor");
       return -1;
    }
 
@@ -300,8 +297,7 @@ static int free_encrypt()
 {
    free_key(pkey); pkey = NULL;
 
-   lfd_free(enc_buf); enc_buf = NULL;
-   lfd_free(dec_buf); dec_buf = NULL;
+   lfd_free(&tmp_buf);
 
    EVP_CIPHER_CTX_free(ctx_enc);
    EVP_CIPHER_CTX_free(ctx_dec);
@@ -311,58 +307,72 @@ static int free_encrypt()
    return 0;
 }
 
-static int encrypt_buf(int len, char *in, char **out)
+static int encrypt_buf(LfdBuffer *buf)
 { 
    register int pad, p, msg_len;
    int outlen;
-   char *in_ptr, *out_ptr = enc_buf;
+   LfdSubBuffer sub;
 
-   msg_len = send_msg(len, in, out);
-   in = *out;
-   in_ptr = in+msg_len;
-   memcpy(out_ptr,in,msg_len);
-   out_ptr += msg_len;
-   
-   send_ib_mesg(&len, &in_ptr);
-   if (!len) return 0;
+   msg_len = send_msg(buf);
+   sub = lfd_sub_buffer(buf, msg_len, buf->size - msg_len);
+
+   send_ib_mesg(&sub);
+   size_t len = lfd_sub_get_size(&sub);
+   if (lfd_sub_get_size(&sub) == 0) return 0;
    /* ( len % blocksize ) */
    p = (len & (blocksize-1)); pad = blocksize - p;
+   lfd_sub_extend(&sub, pad);
    
-   memset(in_ptr+len, pad, pad);
+   memset(lfd_sub_get_ptr(&sub, len), pad, pad);
    outlen=len+pad;
    if (pad == blocksize)
-      RAND_bytes(in_ptr+len, blocksize-1);
-   EVP_EncryptUpdate(ctx_enc, out_ptr, &outlen, in_ptr, len+pad);
-   *out = enc_buf;
+      RAND_bytes(lfd_sub_get_ptr(&sub, len), blocksize-1);
+   lfd_ensure_capacity(&tmp_buf, outlen);
+   EVP_EncryptUpdate(ctx_enc, tmp_buf.ptr, &outlen, lfd_sub_get_ptr(&sub, 0), len+pad);
+   if (!lfd_sub_set_size(&sub, outlen)) {
+        return -1;
+   }
+   memcpy(lfd_sub_get_ptr(&sub, 0), tmp_buf.ptr, outlen);
 
    sequence_num++;
 
    return outlen+msg_len;
 }
 
-static int decrypt_buf(int len, char *in, char **out)
+static int decrypt_buf(LfdBuffer *buf)
 {
    register int pad;
-   char *tmp_ptr, *in_ptr, *out_ptr = dec_buf;
    int outlen;
 
-   len = recv_msg(len, in, out);
-   in = *out;
-   in_ptr = in;
+   {
+       int len = recv_msg(buf);
 
-   outlen=len;
-   if (!len) return 0;
-   EVP_DecryptUpdate(ctx_dec, out_ptr, &outlen, in_ptr, len);
-   recv_ib_mesg(&outlen, &out_ptr);
+       outlen=len;
+       if (!len) return 0;
+       if (!lfd_ensure_capacity(&tmp_buf, outlen)) {
+           vtun_syslog(LOG_INFO, "decrypt_buf: buffer capacity error");
+           return 0;
+       }
+       EVP_DecryptUpdate(ctx_dec, tmp_buf.ptr, &outlen, buf->ptr, len);
+   }
+   tmp_buf.size = outlen;
+   recv_ib_mesg(&tmp_buf);
+   outlen = tmp_buf.size;
    if (!outlen) return 0;
-   tmp_ptr = out_ptr + outlen; tmp_ptr--;
+   unsigned char *tmp_ptr = tmp_buf.ptr + outlen; tmp_ptr--;
    pad = *tmp_ptr;
-   if (pad < 1 || pad > blocksize) {
+   if (pad < 1 || pad > blocksize || pad > outlen) {
       vtun_syslog(LOG_INFO, "decrypt_buf: bad pad length");
       return 0;
    }
-   *out = out_ptr;
-   return outlen - pad;
+   outlen -= pad;
+   if (!lfd_ensure_capacity(buf, outlen)) {
+      vtun_syslog(LOG_INFO, "decrypt_buf: buffer capacity error");
+      return 0;
+   }
+   memcpy(buf->ptr, tmp_buf.ptr, outlen);
+   buf->size = outlen;
+   return outlen;
 }
 
 static int cipher_enc_init(char * iv)
@@ -546,15 +556,14 @@ static int cipher_dec_init(char * iv)
    return 0;
 }
 
-static int send_msg(int len, char *in, char **out)
+static int send_msg(LfdBuffer *buf)
 {
    char * iv; char * in_ptr;
-   int outlen;
+   int outlen, len;
 
-   switch(cipher_enc_state)
-   {
-      case CIPHER_INIT:
-         in_ptr = in - blocksize*2;
+   if (cipher_enc_state == CIPHER_INIT) {
+         lfd_extend_below(buf, blocksize*2);
+         in_ptr = buf->ptr;
          iv = malloc(blocksize);
          RAND_bytes(iv, blocksize);
          strncpy(in_ptr,"ivec",4);
@@ -564,35 +573,28 @@ static int send_msg(int len, char *in, char **out)
          cipher_enc_init(iv);
 
          memset(iv,0,blocksize); free(iv); iv = NULL;
-         RAND_bytes(in_ptr, in - in_ptr);
+         RAND_bytes(in_ptr, blocksize - 4);
 
-         in_ptr = in - blocksize*2;
+         in_ptr = buf->ptr;
          outlen = blocksize*2;
          EVP_EncryptUpdate(ctx_enc_ecb, in_ptr,
             &outlen, in_ptr, blocksize*2);
-         *out = in_ptr;
          len = outlen;
          cipher_enc_state = CIPHER_SEQUENCE;
-      break;
-
-      case CIPHER_CODE:
-      default:
-         *out = in;
+   } else {
          len = 0;
-      break;
    }
    return len;
 }
 
-static int recv_msg(int len, char *in, char **out)
+static int recv_msg(LfdBuffer *buf)
 {
    char * iv; char * in_ptr;
    int outlen;
 
-   switch(cipher_dec_state)
+   if (cipher_dec_state == CIPHER_INIT)
    {
-      case CIPHER_INIT:
-         in_ptr = in;
+         in_ptr = buf->ptr;
          iv = malloc(blocksize);
          outlen = blocksize*2;
          EVP_DecryptUpdate(ctx_dec_ecb, in_ptr, &outlen, in_ptr, blocksize*2);
@@ -602,16 +604,14 @@ static int recv_msg(int len, char *in, char **out)
             memcpy(iv, in_ptr+4, blocksize);
             cipher_dec_init(iv);
 
-            *out = in_ptr + blocksize*2;
-            len -= blocksize*2;
+            lfd_reduce_below(buf, blocksize*2);
             cipher_dec_state = CIPHER_SEQUENCE;
             gibberish = 0;
             gib_time_start = 0;
          } 
          else 
          {
-            len = 0;
-            *out = in;
+            lfd_reset(buf);
             gibberish++;
             if (gibberish == 1) gib_time_start = time(NULL);
 
@@ -648,46 +648,29 @@ static int recv_msg(int len, char *in, char **out)
          }
          memset(iv,0,blocksize); free(iv); iv = NULL;
          memset(in_ptr,0,blocksize*2);         
-      break;
-
-      case CIPHER_CODE:
-      default:
-         *out = in;
-      break;
    }
-   return len;
+   return buf->size;
 }
 
 /* Send In-Band Message */
-static int send_ib_mesg(int *len, char **in)
+static int send_ib_mesg(LfdSubBuffer *buf)
 {
-   char *in_ptr = *in;
-
    /* To simplify matters, I assume that blocksize
          will not be less than 8 bytes */
    if (cipher_enc_state == CIPHER_SEQUENCE)
    {
-      in_ptr -= blocksize;
-      memset(in_ptr,0,blocksize);
-      strncpy(in_ptr,"seq#",4);
-      in_ptr+=4;
-      *((unsigned long *)in_ptr) = htonl(sequence_num);
-      in_ptr-=4;
-
-      *in = in_ptr;
-      *len += blocksize;
+      lfd_sub_extend_below(buf, blocksize);
+      memset(lfd_sub_get_ptr(buf,4),0,blocksize-4);
+      strncpy(lfd_sub_get_ptr(buf,0),"seq#",4);
+      *((unsigned long *)lfd_sub_get_ptr(buf, 4)) = htonl(sequence_num);
    }
    else if (cipher_enc_state == CIPHER_REQ_INIT)
    {
-      in_ptr -= blocksize;
-      memset(in_ptr,0,blocksize);
-      strncpy(in_ptr,"rsyn",4);
-      in_ptr+=4;
-      *((unsigned long *)in_ptr) = htonl(sequence_num);
-      in_ptr-=4;
+      lfd_sub_extend_below(buf, blocksize);
+      memset(lfd_sub_get_ptr(buf,4),0,blocksize-4);
+      strncpy(lfd_sub_get_ptr(buf,0),"rsyn",4);
+      *((unsigned long *)lfd_sub_get_ptr(buf, 4)) = htonl(sequence_num);
 
-      *in = in_ptr;
-      *len += blocksize;
 #ifdef LFD_ENCRYPT_DEBUG
       vtun_syslog(LOG_INFO, "Requesting remote encryptor re-init");      
 #endif
@@ -698,23 +681,19 @@ static int send_ib_mesg(int *len, char **in)
 }
 
 /* Receive In-Band Message */
-static int recv_ib_mesg(int *len, char **in)
+static int recv_ib_mesg(LfdBuffer *buf)
 {
-   char *in_ptr = *in;
-
    if (cipher_dec_state == CIPHER_SEQUENCE)
    {
       /* To simplify matters, I assume that blocksize
          will not be less than 8 bytes */
-      if ( !strncmp(in_ptr, "seq#", 4) )
+      if ( !strncmp(buf->ptr, "seq#", 4) )
       {
-         *in += blocksize;
-         *len -= blocksize;
+         lfd_reduce_below(buf, blocksize);
       }
-      else if ( !strncmp(in_ptr, "rsyn", 4) )
+      else if ( !strncmp(buf->ptr, "rsyn", 4) )
       {
-         *in += blocksize;
-         *len -= blocksize;
+         lfd_reduce_below(buf, blocksize);
 
          if (cipher_enc_state != CIPHER_INIT)
          {
@@ -727,7 +706,7 @@ static int recv_ib_mesg(int *len, char **in)
       }
       else
       {
-         *len = 0;
+         lfd_reset(buf);
 
          if (cipher_dec_state != CIPHER_INIT &&
              cipher_enc_state != CIPHER_REQ_INIT &&

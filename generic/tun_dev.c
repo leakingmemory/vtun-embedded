@@ -1,7 +1,8 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -16,10 +17,6 @@
     GNU General Public License for more details.
  */
 
-/*
- * $Id: tun_dev.c,v 1.5.2.3 2016/10/01 21:37:39 mtbishop Exp $
- */ 
-
 #include "config.h"
 
 #include <unistd.h>
@@ -31,6 +28,7 @@
 
 #include "vtun.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 /* 
  * Allocate TUN device, returns opened fd. 
@@ -63,12 +61,20 @@ int tun_close(int fd, char *dev)
 }
 
 /* Read/write frames from TUN device */
-int tun_write(int fd, char *buf, int len)
+int tun_write(int fd, LfdBuffer *buf)
 {
-    return write(fd, buf, len);
+    int res = write(fd, buf->ptr, buf->size);
+    lfd_reset(buf);
+    return res;
 }
 
-int tun_read(int fd, char *buf, int len)
+int tun_read(int fd, LfdBuffer *buf)
 {
-    return read(fd, buf, len);
+    lfd_reset(buf);
+    lfd_ensure_capacity(buf, VTUN_FRAME_SIZE);
+    ssize_t rd = read(fd, buf->ptr, VTUN_FRAME_SIZE);
+    if (rd >= 0) {
+        buf->size = rd;
+    }
+    return rd;
 }

@@ -1,0 +1,236 @@
+/*  
+    VTun - Virtual Tunnel over TCP/IP network.
+
+    Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
+
+    VTun has been derived from VPPP package by Maxim Krasnyansky.
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+ */
+
+#ifndef _LINKFD_BUFFERS_H
+#define _LINKFD_BUFFERS_H
+
+#include <string.h>
+#include "linkfd_types.h"
+
+/* Frame alloc/free */
+#define LINKFD_FRAME_RESERV 128
+#define LINKFD_FRAME_APPEND 64
+
+static inline LfdBuffer lfd_alloc(size_t size)
+{
+    register void * buf;
+
+    size += LINKFD_FRAME_RESERV + LINKFD_FRAME_APPEND;
+
+    LfdBuffer lfd;
+    if ((buf = malloc(size)) != NULL) {
+        lfd.ptr = buf+LINKFD_FRAME_RESERV;
+        lfd.offset = LINKFD_FRAME_RESERV;
+        lfd.size = 0;
+        lfd.total = size;
+    } else {
+        lfd.ptr = NULL;
+        lfd.offset = 0;
+        lfd.size = 0;
+        lfd.total = 0;
+    }
+    return lfd;
+}
+
+static inline void lfd_reset(LfdBuffer *buf) {
+    buf->ptr = buf->ptr - buf->offset + LINKFD_FRAME_RESERV;
+    buf->offset = LINKFD_FRAME_RESERV;
+    buf->size = 0;
+    if (buf->total < buf->offset) {
+        buf->ptr = buf->ptr - buf->offset + buf->total;
+        buf->offset = buf->total;
+    }
+}
+
+static inline int lfd_realloc(LfdBuffer *buf, size_t size)
+{
+    void *ptr = buf->ptr;
+
+    ptr  -= buf->offset;
+    size += LINKFD_FRAME_RESERV;
+
+    if ((ptr = realloc(ptr, size)) != NULL) {
+        if (buf->offset > size) {
+            buf->offset = size;
+        }
+        buf->ptr = ptr+buf->offset;
+        buf->total = size;
+        if (buf->size > (buf->total - buf->offset)) {
+            buf->size = buf->total - buf->offset;
+        }
+    } else if (size == 0) {
+        buf->ptr = NULL;
+        buf->offset = 0;
+        buf->size = 0;
+        buf->total = 0;
+    } else {
+        return 0;
+    }
+    return 1;
+}
+
+static inline int lfd_extend_below(LfdBuffer *buf, size_t extend_by_size)
+{
+    if (extend_by_size <= buf->offset) {
+        buf->offset -= extend_by_size;
+        buf->ptr -= extend_by_size;
+        buf->size += extend_by_size;
+    } else {
+        size_t expand = extend_by_size - buf->offset;
+        size_t off_plus_size = buf->offset + buf->size;
+        size_t available_extend = buf->total - off_plus_size;
+        if (expand > available_extend) {
+            if (!lfd_realloc(buf, off_plus_size + expand)) {
+                return 0;
+            }
+        }
+        memmove(buf->ptr + expand, buf->ptr, buf->size);
+        buf->ptr -= buf->offset;
+        buf->offset = 0;
+        buf->size += extend_by_size;
+    }
+    return 1;
+}
+
+static inline int lfd_reduce_below(LfdBuffer *buf, size_t reduce_by_size)
+{
+    if (reduce_by_size > buf->size) {
+        reduce_by_size = buf->size;
+    }
+    buf->ptr += reduce_by_size;
+    buf->offset += reduce_by_size;
+    buf->size -= reduce_by_size;
+}
+
+static inline int lfd_ensure_capacity(LfdBuffer *buf, size_t size)
+{
+    if ((size + buf->offset) > buf->total) {
+        if (!lfd_realloc(buf, size + buf->offset)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static inline int lfd_extend(LfdBuffer *buf, size_t extend_by)
+{
+    size_t caps = buf->offset + buf->size + extend_by;
+    if (!lfd_ensure_capacity(buf, caps)) {
+        return 0;
+    }
+    buf->size += extend_by;
+    return 1;
+}
+
+static inline void lfd_free(LfdBuffer *buf)
+{
+    unsigned char *ptr = buf->ptr;
+
+    if (ptr == NULL) return;
+
+    free(ptr-buf->offset);
+    buf->ptr = NULL;
+    buf->offset = 0;
+    buf->size = 0;
+    buf->total = 0;
+}
+
+static inline void *lfd_get_ptr(LfdBuffer *buf, size_t offset)
+{
+    return buf->ptr + offset;
+}
+
+static inline LfdSubBuffer lfd_sub_buffer(LfdBuffer *buf, size_t displaced_start, size_t length)
+{
+    LfdSubBuffer sub;
+    sub.buf = buf;
+    if (displaced_start > buf->size) {
+        displaced_start = buf->size;
+    }
+    sub.displaced_start = displaced_start;
+    if (length > (buf->size - displaced_start)) {
+        length = buf->size - displaced_start;
+    }
+    sub.displaced_end = buf->size - displaced_start - length;
+    return sub;
+}
+
+static inline void *lfd_sub_get_ptr(LfdSubBuffer *sub, size_t offset) {
+    return lfd_get_ptr(sub->buf, sub->displaced_start + offset);
+}
+
+static inline size_t lfd_sub_get_size(LfdSubBuffer *sub) {
+    size_t size = sub->buf->size;
+    if (size < sub->displaced_start) {
+        return 0;
+    }
+    size -= sub->displaced_start;
+    if (size < sub->displaced_end) {
+        return 0;
+    }
+    return size - sub->displaced_end;
+}
+
+static inline int lfd_sub_extend_below(LfdSubBuffer *sub, size_t extend_by_size)
+{
+    if (!lfd_extend_below(sub->buf, extend_by_size)) {
+        return 0;
+    }
+    if (sub->displaced_start > 0) {
+        memmove(lfd_get_ptr(sub->buf, 0), lfd_get_ptr(sub->buf, extend_by_size), sub->displaced_start);
+    }
+    return 1;
+}
+
+static inline int lfd_sub_extend(LfdSubBuffer *sub, size_t extend_by_size) {
+    if (!lfd_extend(sub->buf, extend_by_size)) {
+        return 0;
+    }
+    if (sub->displaced_end > 0) {
+        memmove(lfd_get_ptr(sub->buf, sub->buf->size - extend_by_size), lfd_get_ptr(sub->buf, sub->buf->size - extend_by_size - sub->displaced_end), sub->displaced_end);
+    }
+    return 1;
+}
+
+static inline int lfd_sub_reduce(LfdSubBuffer *sub, size_t reduce_by_size) {
+    size_t size = lfd_sub_get_size(sub);
+    if (reduce_by_size > size) {
+        reduce_by_size = size;
+    }
+    if (reduce_by_size == 0) {
+        return 1;
+    }
+    if (sub->displaced_end > 0) {
+        memmove(lfd_get_ptr(sub->buf, sub->buf->size - sub->displaced_end - reduce_by_size), lfd_get_ptr(sub->buf, sub->buf->size - sub->displaced_end), sub->displaced_end);
+    }
+    sub->buf->size -= reduce_by_size;
+    return 1;
+}
+
+static inline int lfd_sub_set_size(LfdSubBuffer *sub, size_t size) {
+    size_t cur_size = lfd_sub_get_size(sub);
+    if (cur_size < size) {
+        return lfd_sub_extend(sub, size - cur_size);
+    } else if (cur_size > size) {
+        return lfd_sub_reduce(sub, cur_size - size);
+    }
+    return 1;
+}
+
+#endif

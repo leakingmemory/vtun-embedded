@@ -1,7 +1,8 @@
-/*  
+/*
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -15,10 +16,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: tun_dev.c,v 1.6.2.3 2016/10/01 21:46:01 mtbishop Exp $
- */ 
 
 #include "config.h"
 
@@ -37,6 +34,7 @@
 
 #include "vtun.h"
 #include "lib.h"
+#include "linkfd_buffers.h"
 
 /* 
  * Allocate TUN device, returns opened fd. 
@@ -69,32 +67,37 @@ int tun_close(int fd, char *dev)
 }
 
 /* Read/write frames from TUN device */
-int tun_write(int fd, char *buf, int len)
+int tun_write(int fd, LfdBuffer *buf)
 {
     u_int32_t type = htonl(AF_INET);
     struct iovec iv[2];
     
     iv[0].iov_base = &type;
     iv[0].iov_len = sizeof(type);
-    iv[1].iov_base = buf;
-    iv[1].iov_len = len;
+    iv[1].iov_base = buf->ptr;
+    iv[1].iov_len = buf->size;
 
-    return writev(fd, iv, 2);
+    int res = writev(fd, iv, 2);
+    lfd_reset(buf);
+    return res;
 }
 
-int tun_read(int fd, char *buf, int len)
+int tun_read(int fd, LfdBuffer *buf)
 {
     struct iovec iv[2];
     u_int32_t type;
     register int rlen;
 
+    lfd_reset(buf);
+    lfd_ensure_capacity(buf, VTUN_FRAME_SIZE);
     iv[0].iov_base = &type;
     iv[0].iov_len = sizeof(type);
-    iv[1].iov_base = buf;
-    iv[1].iov_len = len;
+    iv[1].iov_base = buf->ptr;
+    iv[1].iov_len = VTUN_FRAME_SIZE;
 
-    if( (rlen = readv(fd, iv, 2)) > 0 )
+    if( (rlen = readv(fd, iv, 2)) > 0 ) {
+       buf.size = rlen - sizeof(type);
        return rlen - sizeof(type);
-    else
+    } else
        return rlen;
 }
