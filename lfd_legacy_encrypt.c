@@ -91,6 +91,7 @@ static int legacy_encrypt_buf(LfdBuffer *buf)
 
 
       if (!lfd_extend_below(buf, pad)) {
+         lfd_reset(buf);
          return 0;
       }
       memset(buf->ptr, 0, pad);
@@ -98,6 +99,7 @@ static int legacy_encrypt_buf(LfdBuffer *buf)
    }
 
    if (!lfd_ensure_capacity(&enc_buf, buf->size)) {
+      lfd_reset(buf);
       return 0;
    }
    for (size_t off=0; off < buf->size; off += 8)

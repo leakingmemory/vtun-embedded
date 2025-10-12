@@ -51,7 +51,9 @@ int pipe_write(int fd, LfdBuffer *buf)
 int pipe_read(int fd, LfdBuffer *buf)
 {
     lfd_reset(buf);
-    lfd_ensure_capacity(buf, VTUN_FRAME_SIZE);
+    if (!lfd_ensure_capacity(buf, VTUN_FRAME_SIZE)) {
+        return 0;
+    }
     ssize_t rd = read(fd, buf->ptr, VTUN_FRAME_SIZE);
     if (rd >= 0) {
         buf->size = rd;

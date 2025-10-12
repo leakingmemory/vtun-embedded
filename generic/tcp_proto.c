@@ -61,7 +61,9 @@ int tcp_write(int fd, LfdBuffer *buf, int flags)
 	}
 	{
 		size_t len = buf->size | (flags & ~VTUN_FSIZE_MASK);
-		lfd_extend_below(buf, sizeof(short));
+		if (!lfd_extend_below(buf, sizeof(short))) {
+            return -1;
+        }
 		ptr = buf->ptr;
 
 		*((unsigned short *)ptr) = htons(len);

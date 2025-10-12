@@ -314,22 +314,36 @@ static int encrypt_buf(LfdBuffer *buf)
    LfdSubBuffer sub;
 
    msg_len = send_msg(buf);
+   if (msg_len < 0) {
+      lfd_reset(buf);
+      return -1;
+   }
    sub = lfd_sub_buffer(buf, msg_len, buf->size - msg_len);
 
-   send_ib_mesg(&sub);
+   if (send_ib_mesg(&sub) < 0) {
+      lfd_reset(buf);
+      return -1;
+   }
    size_t len = lfd_sub_get_size(&sub);
    if (lfd_sub_get_size(&sub) == 0) return 0;
    /* ( len % blocksize ) */
    p = (len & (blocksize-1)); pad = blocksize - p;
-   lfd_sub_extend(&sub, pad);
+   if (!lfd_sub_extend(&sub, pad)) {
+       lfd_reset(buf);
+       return -1;
+   }
    
    memset(lfd_sub_get_ptr(&sub, len), pad, pad);
    outlen=len+pad;
    if (pad == blocksize)
       RAND_bytes(lfd_sub_get_ptr(&sub, len), blocksize-1);
-   lfd_ensure_capacity(&tmp_buf, outlen);
+   if (!lfd_ensure_capacity(&tmp_buf, outlen)) {
+      lfd_reset(buf);
+      return -1;
+   }
    EVP_EncryptUpdate(ctx_enc, tmp_buf.ptr, &outlen, lfd_sub_get_ptr(&sub, 0), len+pad);
    if (!lfd_sub_set_size(&sub, outlen)) {
+        lfd_reset(buf);
         return -1;
    }
    memcpy(lfd_sub_get_ptr(&sub, 0), tmp_buf.ptr, outlen);
@@ -562,7 +576,9 @@ static int send_msg(LfdBuffer *buf)
    int outlen, len;
 
    if (cipher_enc_state == CIPHER_INIT) {
-         lfd_extend_below(buf, blocksize*2);
+         if (!lfd_extend_below(buf, blocksize*2)) {
+             return -1;
+         }
          in_ptr = buf->ptr;
          iv = malloc(blocksize);
          RAND_bytes(iv, blocksize);
@@ -659,14 +675,18 @@ static int send_ib_mesg(LfdSubBuffer *buf)
          will not be less than 8 bytes */
    if (cipher_enc_state == CIPHER_SEQUENCE)
    {
-      lfd_sub_extend_below(buf, blocksize);
+      if (!lfd_sub_extend_below(buf, blocksize)) {
+         return -1;
+      }
       memset(lfd_sub_get_ptr(buf,4),0,blocksize-4);
       strncpy(lfd_sub_get_ptr(buf,0),"seq#",4);
       *((unsigned long *)lfd_sub_get_ptr(buf, 4)) = htonl(sequence_num);
    }
    else if (cipher_enc_state == CIPHER_REQ_INIT)
    {
-      lfd_sub_extend_below(buf, blocksize);
+      if (!lfd_sub_extend_below(buf, blocksize)) {
+         return -1;
+      }
       memset(lfd_sub_get_ptr(buf,4),0,blocksize-4);
       strncpy(lfd_sub_get_ptr(buf,0),"rsyn",4);
       *((unsigned long *)lfd_sub_get_ptr(buf, 4)) = htonl(sequence_num);

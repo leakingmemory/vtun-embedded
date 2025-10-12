@@ -103,27 +103,33 @@ static int lfd_free_mod(void)
 }
 
  /* Run modules down (from head to tail) */
-static inline int lfd_run_down(int len, LfdBuffer *buf)
+static inline int lfd_run_down(LfdBuffer *buf)
 {
      register struct lfd_mod *mod;
      
-     for(mod = lfd_mod_head; mod && len > 0; mod = mod->next )
+     for(mod = lfd_mod_head; mod && buf->size > 0; mod = mod->next )
         if( mod->encode ){
-           len = (mod->encode)(buf);
+           if ((mod->encode)(buf) < 0) {
+               lfd_reset(buf);
+               return -1;
+           }
         }
-     return len;
+     return buf->size;
 }
 
 /* Run modules up (from tail to head) */
-static inline int lfd_run_up(int len, LfdBuffer *buf)
+static inline int lfd_run_up(LfdBuffer *buf)
 {
      register struct lfd_mod *mod;
      
-     for(mod = lfd_mod_tail; mod && len > 0; mod = mod->prev )
+     for(mod = lfd_mod_tail; mod && buf->size > 0; mod = mod->prev )
         if( mod->decode ){
-	   len = (mod->decode)(buf);
-	}
-     return len;
+	         if ((mod->decode)(buf) < 0) {
+                 lfd_reset(buf);
+                 return -1;
+             }
+	    }
+     return buf->size;
 }
 
 /* Check if modules are accepting the data(down) */
@@ -269,7 +275,7 @@ int lfd_linker(void)
 			send_a_packet = 0;
 			tmplen = 1;
 			lfd_host->stat.byte_out += tmplen; 
-			if( (tmplen=lfd_run_down(tmplen,&buf)) == -1 )
+			if( (tmplen=lfd_run_down(&buf)) < 0 )
 				break;
 			if( tmplen && proto_write(fd1, &buf, 0) < 0 )
 				break;
@@ -308,7 +314,7 @@ int lfd_linker(void)
 			}   
 
 			lfd_host->stat.comp_in += len; 
-			if( (len=lfd_run_up(len,&buf)) == -1 )
+			if( (len=lfd_run_up(&buf)) < 0 )
 				break;	
 			if( len && dev_write(fd2,&buf) < 0 ){
 				if( errno != EAGAIN && errno != EINTR )
@@ -331,7 +337,7 @@ int lfd_linker(void)
 			if( !len ) break;
 		
 			lfd_host->stat.byte_out += len; 
-			if( (len=lfd_run_down(len,&buf)) == -1 )
+			if( (len=lfd_run_down(&buf)) < 0 )
 				break;
 			if( len && proto_write(fd1, &buf, 0) < 0 )
 				break;
