@@ -3,7 +3,7 @@
 
     Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
-    VTun has been derived from VPPP package by Maxim Krasnyansky.
+    test_runner.c - Test setup significantly AI assisted
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,8 +16,21 @@
     GNU General Public License for more details.
  */
 
-int vtun_main(int argc, char *argv[], char *env[]);
+#include <check.h>
+#include <stdlib.h>
 
-int main(int argc, char *argv[], char *env[]) {
-	return vtun_main(argc, argv, env);
+extern Suite *buffers_suite(void);
+
+int main(void)
+{
+    int number_failed;
+    SRunner *sr;
+
+    sr = srunner_create(buffers_suite());
+
+    srunner_run_all(sr, CK_NORMAL);
+    number_failed = srunner_ntests_failed(sr);
+    srunner_free(sr);
+
+    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

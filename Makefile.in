@@ -47,7 +47,7 @@ LOCK_DIR = ${VAR_DIR}/lock/vtund
 DEFS = -DVTUN_CONFIG_FILE=\"$(CFG_FILE)\" -DVTUN_PID_FILE=\"$(PID_FILE)\" \
        -DVTUN_STAT_DIR=\"$(STAT_DIR)\" -DVTUN_LOCK_DIR=\"$(LOCK_DIR)\"
 
-OBJS = main.o cfg_file.tab.o cfg_file.lex.o server.o client.o lib.o \
+OBJS = main.o vtun.o cfg_file.tab.o cfg_file.lex.o server.o client.o lib.o \
        llist.o auth.o tunnel.o lock.o netlib.o  \
        tun_dev.o tap_dev.o pty_dev.o pipe_dev.o \
        tcp_proto.o udp_proto.o \
@@ -56,7 +56,7 @@ OBJS = main.o cfg_file.tab.o cfg_file.lex.o server.o client.o lib.o \
 CONFIGURE_FILES = Makefile config.status config.cache config.h config.log 
 
 %.o: %.c vtun.h lib.h
-	$(CC) $(CFLAGS) $(DEFS) -c $<
+	$(CC) $(CFLAGS) $(DEFS) -o $@ -c $<
 
 vtund: $(OBJS)
 	$(CC) $(CFLAGS) -o vtund $(OBJS) $(LFD_OBJS) $(LDFLAGS)
@@ -72,7 +72,7 @@ cfg_file.lex.c: cfg_file.l cfg_kwords.h config.h cfg_file.tab.h
 depend:
 	makedepend -- $(CFLAGS) -- *.c
 
-clean:
+clean: clean-test
 	rm -f core cfg_file.tab.* cfg_file.lex.* *.o *~ .#* *.bak vtund
 
 distclean: clean
@@ -100,5 +100,30 @@ install: vtund install_config install_man
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(SBIN_DIR)
 	$(INSTALL) -m 755 $(INSTALL_OWNER) vtund $(DESTDIR)$(SBIN_DIR)
 	$(BIN_DIR)/strip $(DESTDIR)$(SBIN_DIR)/vtund
+
+# Test configuration
+TEST_DIR = tests
+TEST_CFLAGS = $(CFLAGS) -I. -DTESTING
+TEST_LDFLAGS = $(LDFLAGS) -lcheck -lm -lrt -lpthread
+
+# Test sources
+TEST_SRCS = $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/test_runner.c
+TEST_OBJS = $(TEST_SRCS:.c=.o)
+
+# Test binary
+TEST_BIN = run_tests
+
+.PHONY: test clean-test
+
+# Build and run tests
+test: $(TEST_BIN)
+	./$(TEST_BIN)
+
+$(TEST_BIN): $(TEST_OBJS) $(filter-out main.o, $(OBJS))
+	$(CC) -o $@ $(filter-out main.o, $(OBJS)) $(LFD_OBJS) $(TEST_OBJS) $(TEST_LDFLAGS)
+
+# Clean test artifacts
+clean-test:
+	rm -f $(TEST_OBJS) $(TEST_BIN)
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
