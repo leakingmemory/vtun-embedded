@@ -59,9 +59,9 @@
 
 /* OpenSSL includes */
 #include <openssl/evp.h>
-#include <openssl/md5.h>
 #include <openssl/blowfish.h>
 #include <openssl/rand.h>
+#include "md5.h"
 
 /*
  * #define LFD_ENCRYPT_DEBUG
@@ -128,12 +128,12 @@ static int prep_key(char **key, int size, struct vtun_host *host)
       tmplen = strlen(host->passwd);
       if (tmplen != 0) halflen = tmplen>>1;
       else halflen = 0;
-      MD5(host->passwd, halflen, hashkey);
-      MD5((host->passwd)+halflen, tmplen-halflen, hashkey+16);
+      md5((md5_hash *) hashkey, host->passwd, halflen);
+      md5((md5_hash *) (hashkey+16), (host->passwd)+halflen, tmplen-halflen);
    }
    else if (size == 16)
    {
-      MD5(host->passwd,strlen(host->passwd), hashkey);
+      md5((md5_hash *) hashkey, host->passwd, strlen(host->passwd));
    }
    else
    {

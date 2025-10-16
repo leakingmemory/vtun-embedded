@@ -166,12 +166,24 @@ int tunnel(struct vtun_host *host)
 	         case VTUN_PIPE:
 		    null_fd = open("/dev/null", O_RDWR);
 		    close(fd[0]);
-		    close(0); dup(fd[1]);
-		    close(1); dup(fd[1]);
+		    close(0);
+            if (dup(fd[1]) != 0) {
+              vtun_syslog(LOG_ERR, "Can't redirect stdin to /dev/null");
+              exit(0);
+            }
+		    close(1);
+            if (dup(fd[1]) != 1) {
+              vtun_syslog(LOG_ERR, "Can't redirect stdout to /dev/null");
+              exit(0);
+            }
 		    close(fd[1]);
 
 		    /* Route stderr to /dev/null */
-		    close(2); dup(null_fd);
+		    close(2);
+            if (dup(null_fd) != 2) {
+                vtun_syslog(LOG_ERR, "Can't redirect stderr to /dev/null");
+                exit(0);
+            }
 		    close(null_fd);
 		    break;
 	         case VTUN_ETHER:

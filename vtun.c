@@ -2,6 +2,7 @@
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -205,14 +206,28 @@ int vtun_main(int argc, char *argv[], char *env[])
 
         /* Direct stdin,stdout,stderr to '/dev/null' */
         fd = open("/dev/null", O_RDWR);
-	close(0); dup(fd);
-	close(1); dup(fd);
-        close(2); dup(fd);
+	close(0);
+    if (dup(fd) != 0) {
+        vtun_syslog(LOG_ERR, "Can't redirect stdin to /dev/null");
+        exit(1);
+    }
+	close(1);
+    if (dup(fd) != 1) {
+        vtun_syslog(LOG_ERR, "Can't redirect stdout to /dev/null");
+        exit(1);
+    }
+    close(2);
+    if (dup(fd) != 2) {
+        vtun_syslog(LOG_ERR, "Can't redirect stderr to /dev/null");
+        exit(1);
+    }
         close(fd);
 
 	setsid();
 
-	chdir("/");
+	if (chdir("/") != 0) {
+        vtun_syslog(LOG_ERR, "Can't change directory to /");
+    }
      }
 
      if(svr){

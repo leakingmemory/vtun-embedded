@@ -46,29 +46,19 @@
 
 #ifdef HAVE_SSL
 
-#ifndef __APPLE_CC__
-/* OpenSSL includes */
-#include <openssl/md5.h>
-#include <openssl/blowfish.h>
-#else /* YAY - We're MAC OS */
-#include <sys/md5.h>
-#include <crypto/blowfish.h>
-#endif  /* __APPLE_CC__ */
+#include "md5.h"
+#include "blowfish.h"
 
 #define ENC_BUF_SIZE VTUN_FRAME_SIZE + 16 
 #define ENC_KEY_SIZE 16
 
-static BF_KEY key;
-static LfdBuffer enc_buf;
+static BlowfishContext key;
 
 static int alloc_legacy_encrypt(struct vtun_host *host)
 {
-   if ((enc_buf = lfd_alloc(ENC_BUF_SIZE)).ptr == NULL) {
-      vtun_syslog(LOG_ERR,"Can't allocate buffer for legacy encryptor");
-      return -1;
-   }
-
-   BF_set_key(&key, ENC_KEY_SIZE, MD5(host->passwd,strlen(host->passwd),NULL));
+   md5_hash h;
+   md5(&h, host->passwd, strlen(host->passwd));
+   blowfish_init(&key, &h, 16);
 
    vtun_syslog(LOG_INFO, "BlowFish legacy encryption initialized");
    return 0;
@@ -76,7 +66,6 @@ static int alloc_legacy_encrypt(struct vtun_host *host)
 
 static int free_legacy_encrypt()
 {
-   lfd_free(&enc_buf);
    return 0;
 }
 
@@ -98,14 +87,9 @@ static int legacy_encrypt_buf(LfdBuffer *buf)
       *((char *) buf->ptr) = (char) pad;
    }
 
-   if (!lfd_ensure_capacity(&enc_buf, buf->size)) {
-      lfd_reset(buf);
-      return 0;
+   for (size_t off=0; off < buf->size; off += 8) {
+      blowfish_encrypt_8bytes_ecb(&key, buf->ptr + off);
    }
-   for (size_t off=0; off < buf->size; off += 8)
-      BF_ecb_encrypt(buf->ptr + off,  enc_buf.ptr + off, &key, BF_ENCRYPT);
-
-   memcpy(buf->ptr, enc_buf.ptr, buf->size);
 
    return buf->size;
 }
@@ -114,7 +98,7 @@ static int legacy_decrypt_buf(LfdBuffer *buf)
 {
    for (size_t p = 0; p < buf->size; p += 8) {
       void *blk = lfd_get_ptr(buf, p);
-      BF_ecb_encrypt(blk, blk, &key, BF_DECRYPT);
+      blowfish_decrypt_8bytes_ecb(&key, blk);
    }
 
    int p = ((char *) buf->ptr)[0];

@@ -1,9 +1,7 @@
 /*
-    VTun - Virtual Tunnel over TCP/IP network.
+VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
-
-    test_runner.c - Test setup significantly AI assisted
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,23 +14,20 @@
     GNU General Public License for more details.
  */
 
-#include <check.h>
-#include <stdlib.h>
+#ifndef VTUN_EMBEDDED_BLOWFISH_H
+#define VTUN_EMBEDDED_BLOWFISH_H
 
-extern Suite *buffers_suite(void);
-extern Suite *legacy_crypto_suite(void);
+#include <stdint.h>
 
-int main(void)
-{
-    int number_failed;
-    SRunner *sr;
+typedef struct {
+    uint32_t p[18];
+    uint32_t s[1024];
+} BlowfishContext;
 
-    sr = srunner_create(buffers_suite());
-	srunner_add_suite(sr, legacy_crypto_suite());
+int blowfish_init(BlowfishContext *ctx, void *key, int key_length_bytes);
+void blowfish_encrypt_8bytes_le(BlowfishContext *ctx, void *block);
+void blowfish_decrypt_8bytes_le(BlowfishContext *ctx, void *block);
+void blowfish_encrypt_8bytes_ecb(BlowfishContext *ctx, void *block);
+void blowfish_decrypt_8bytes_ecb(BlowfishContext *ctx, void *block);
 
-    srunner_run_all(sr, CK_NORMAL);
-    number_failed = srunner_ntests_failed(sr);
-    srunner_free(sr);
-
-    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
-}
+#endif //VTUN_EMBEDDED_BLOWFISH_H

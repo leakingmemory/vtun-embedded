@@ -2,6 +2,7 @@
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+	Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -58,9 +59,9 @@
 /* Encryption and Decryption of the challenge key */
 #ifdef HAVE_SSL
 
-#include <openssl/md5.h>
-#include <openssl/blowfish.h>
 #include <openssl/rand.h>
+#include "blowfish.h"
+#include "md5.h"
 
 static void gen_chal(char *buf)
 {
@@ -70,23 +71,27 @@ static void gen_chal(char *buf)
 static void encrypt_chal(char *chal, char *pwd)
 { 
    register int i;
-   BF_KEY key;
+   BlowfishContext key;
+   md5_hash hash;
 
-   BF_set_key(&key, 16, MD5(pwd,strlen(pwd),NULL));
+   md5(&hash, (unsigned char *)pwd, strlen(pwd));
+   blowfish_init(&key, &hash, 16);
 
    for(i=0; i < VTUN_CHAL_SIZE; i += 8 )
-      BF_ecb_encrypt(chal + i,  chal + i, &key, BF_ENCRYPT);
+      blowfish_encrypt_8bytes_ecb(&key, chal + i);
 }
 
 static void decrypt_chal(char *chal, char *pwd)
 { 
    register int i;
-   BF_KEY key;
+   BlowfishContext key;
+   md5_hash hash;
 
-   BF_set_key(&key, 16, MD5(pwd,strlen(pwd),NULL));
+   md5(&hash, (unsigned char *)pwd, strlen(pwd));
+   blowfish_init(&key, &hash, 16);
 
    for(i=0; i < VTUN_CHAL_SIZE; i += 8 )
-      BF_ecb_encrypt(chal + i,  chal + i, &key, BF_DECRYPT);
+      blowfish_decrypt_8bytes_ecb(&key, chal + i);
 }
 
 #else /* HAVE_SSL */
