@@ -1,0 +1,24 @@
+name: master.yml
+on:
+  push:
+    branches:
+      - master
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y liblzo2-dev libbsd-dev
+
+      - name: Create Release Tarball
+        run: |
+          chmod +x release/release.sh
+          ./release/release.sh current
+
+      - name: Test build
+        run: ./release/buildtest.sh . current
