@@ -1,0 +1,16 @@
+[Unit]
+Description=Simple network tunneling service (vtunemd)
+After=network.target
+Requires=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/vtunemd -n %i ${HOSTNAME}
+EnvironmentFile=-/etc/vtunemd/%i.env
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
