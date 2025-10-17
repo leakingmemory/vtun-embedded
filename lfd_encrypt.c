@@ -71,7 +71,6 @@
 #define ENC_KEY_SIZE 16
 
 static BF_KEY key;
-LfdBuffer tmp_buf;
 
 #define CIPHER_INIT		0
 #define CIPHER_CODE		1	
@@ -168,11 +167,6 @@ static int alloc_encrypt(struct vtun_host *host)
 
    enc_init_first_time = 1;   
    dec_init_first_time = 1;   
-
-   if ((tmp_buf = lfd_alloc(ENC_BUF_SIZE)).ptr == NULL) {
-      vtun_syslog(LOG_ERR,"Can't allocate tmp buffer for encryptor/decryptor");
-      return -1;
-   }
 
    RAND_bytes((char *)&sequence_num, 4);
    gibberish = 0;
@@ -297,8 +291,6 @@ static int free_encrypt()
 {
    free_key(pkey); pkey = NULL;
 
-   lfd_free(&tmp_buf);
-
    EVP_CIPHER_CTX_free(ctx_enc);
    EVP_CIPHER_CTX_free(ctx_dec);
    EVP_CIPHER_CTX_free(ctx_enc_ecb);
@@ -337,16 +329,14 @@ static int encrypt_buf(LfdBuffer *buf)
    outlen=len+pad;
    if (pad == blocksize)
       RAND_bytes(lfd_sub_get_ptr(&sub, len), blocksize-1);
-   if (!lfd_ensure_capacity(&tmp_buf, outlen)) {
-      lfd_reset(buf);
-      return -1;
+   {
+   	  void *subptr = lfd_sub_get_ptr(&sub, 0);
+      EVP_EncryptUpdate(ctx_enc, subptr, &outlen, subptr, len+pad);
    }
-   EVP_EncryptUpdate(ctx_enc, tmp_buf.ptr, &outlen, lfd_sub_get_ptr(&sub, 0), len+pad);
    if (!lfd_sub_set_size(&sub, outlen)) {
         lfd_reset(buf);
         return -1;
    }
-   memcpy(lfd_sub_get_ptr(&sub, 0), tmp_buf.ptr, outlen);
 
    sequence_num++;
 
@@ -363,28 +353,19 @@ static int decrypt_buf(LfdBuffer *buf)
 
        outlen=len;
        if (!len) return 0;
-       if (!lfd_ensure_capacity(&tmp_buf, outlen)) {
-           vtun_syslog(LOG_INFO, "decrypt_buf: buffer capacity error");
-           return 0;
-       }
-       EVP_DecryptUpdate(ctx_dec, tmp_buf.ptr, &outlen, buf->ptr, len);
+       EVP_DecryptUpdate(ctx_dec, buf->ptr, &outlen, buf->ptr, len);
    }
-   tmp_buf.size = outlen;
-   recv_ib_mesg(&tmp_buf);
-   outlen = tmp_buf.size;
+   buf->size = outlen;
+   recv_ib_mesg(buf);
+   outlen = buf->size;
    if (!outlen) return 0;
-   unsigned char *tmp_ptr = tmp_buf.ptr + outlen; tmp_ptr--;
+   unsigned char *tmp_ptr = buf->ptr + outlen; tmp_ptr--;
    pad = *tmp_ptr;
    if (pad < 1 || pad > blocksize || pad > outlen) {
       vtun_syslog(LOG_INFO, "decrypt_buf: bad pad length");
       return 0;
    }
    outlen -= pad;
-   if (!lfd_ensure_capacity(buf, outlen)) {
-      vtun_syslog(LOG_INFO, "decrypt_buf: buffer capacity error");
-      return 0;
-   }
-   memcpy(buf->ptr, tmp_buf.ptr, outlen);
    buf->size = outlen;
    return outlen;
 }
