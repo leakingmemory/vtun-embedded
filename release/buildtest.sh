@@ -1,3 +1,8 @@
+#!/bin/sh
+
+assetpath=$1
+version=$2
+
 rm -rf vtun-embedded-$version
 tar xzvf $assetpath/vtun-embedded-$version.tar.gz || exit 1
 cd vtun-embedded-$version || exit 1
