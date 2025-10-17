@@ -7,9 +7,9 @@
 .\" TP hanging label
 .TH VTUND 8
 .SH NAME
-vtund \- VTun(Virtual Tunnel) daemon.
+vtunemd \- VTun(Virtual Tunnel) daemon.
 .SH SYNOPSIS
-.B vtund 
+.B vtunemd
 <
 .I -s  
 >
@@ -26,7 +26,7 @@ vtund \- VTun(Virtual Tunnel) daemon.
 .I -P port 
 ]
 .LP
-.B vtund 
+.B vtunemd
 [ 
 .I -f file 
 ] 
@@ -74,7 +74,7 @@ to any kernel parts.
 .I -f file 
 Read config information from the
 .I file
-(full path required). By default vtund uses /etc/vtund.conf
+(full path required). By default vtunemd uses /etc/vtunemd.conf
 .TP
 .I -n 
 Do not become daemon (required on no-MMU systems).
@@ -89,18 +89,18 @@ Run as the inetd server.
 .I -P port
 Listen for connection on the specified
 .I port
-By default vtund listens on TCP port 5000. This options is equivalent to 
+By default vtunemd listens on TCP port 5000. This options is equivalent to
 the 'port' option of config file.
 .SS Client mode:
 .TP
 .I -P port
 Connect to the server on the specified
 .I port
-By default vtund connects to TCP port 5000. This options is equivalent to 
+By default vtunemd connects to TCP port 5000. This options is equivalent to
 the 'port' option of config file.
 .TP
 .I -p
-Reconnect to the server after connection termination. By default vtund will
+Reconnect to the server after connection termination. By default vtunemd will
 exit if connection has been terminated. This options is equivalent to 
 the 'persist' option of config file.
 .TP
@@ -124,15 +124,15 @@ Address of the server to connect to. Either IP address or domain name can be
 specified.
 .SH FILES
 .TP
-.B /etc/vtund.conf
+.B /etc/vtunemd.conf
 Main configuration file with sessions and other information. 
-See vtund.conf example provided with distribution and vtund.conf(5) 
+See vtunemd.conf example provided with distribution and vtunemd.conf(5)
 for more information.
 .TP
-.B /var/lock/vtund/
+.B /var/lock/vtunemd/
 Session lock files. 
 .TP
-.B /var/log/vtund/
+.B /var/log/vtunemd/
 Connection statistic log files.
 .br
 Format:
@@ -140,15 +140,15 @@ Format:
 .SH SIGNALS
 .TP
 .B SIGHUP
-Server mode: Causes vtund to reread the config file.
+Server mode: Causes vtunemd to reread the config file.
 .br
-Client mode: Causes vtund to reestablish the connection.
+Client mode: Causes vtunemd to reestablish the connection.
 .TP
 .B SIGUSR1
-This signal causes vtund to reset statistic counters. 
+This signal causes vtunemd to reset statistic counters.
 .SH SEE ALSO
 .TP
-vtund.conf(5)
+vtunemd.conf(5)
 .SH NOTES 
 .LP
 This product includes software developed by the OpenSSL Project

@@ -104,7 +104,7 @@ int vtun_main(int argc, char *argv[], char *env[])
      default_host.loc_fd = default_host.rmt_fd = -1;
 
      /* Start logging to syslog and stderr */
-     openlog("vtund", LOG_PID | LOG_NDELAY | LOG_PERROR, LOG_DAEMON);
+     openlog("vtunemd", LOG_PID | LOG_NDELAY | LOG_PERROR, LOG_DAEMON);
 
      while( (opt=getopt(argc,argv,OPTSTRING SERVOPT_STRING)) != EOF ){
 	switch(opt){
@@ -152,7 +152,7 @@ int vtun_main(int argc, char *argv[], char *env[])
      if (vtun.syslog != LOG_DAEMON) {
 	/* Restart logging to syslog using specified facility  */
  	closelog();
- 	openlog("vtund", LOG_PID|LOG_NDELAY|LOG_PERROR, vtun.syslog);
+ 	openlog("vtunemd", LOG_PID|LOG_NDELAY|LOG_PERROR, vtun.syslog);
      }
 
 	clear_nat_hack_flags(svr);
@@ -235,7 +235,7 @@ int vtun_main(int argc, char *argv[], char *env[])
         sa.sa_handler=reread_config;
         sigaction(SIGHUP,&sa,NULL);
 
-        init_title(argc,argv,env,"vtund[s]: ");
+        init_title(argc,argv,env,"vtunemd[s]: ");
 
 	if( vtun.svr_type == VTUN_STAND_ALONE ){
 #ifdef HAVE_WORKING_FORK
@@ -248,7 +248,7 @@ int vtun_main(int argc, char *argv[], char *env[])
 	
 	server(sock);
      } else {	
-        init_title(argc,argv,env,"vtund[c]: ");
+        init_title(argc,argv,env,"vtunemd[c]: ");
         client(host);
      }
 
@@ -288,12 +288,12 @@ static void usage(void)
      printf("Usage: \n");
      printf("  Server:\n");
 #ifdef HAVE_WORKING_FORK
-     printf("\tvtund <-s|-i> [-f file] [-P port] [-L local address]\n");
+     printf("\tvtunemd <-s|-i> [-f file] [-P port] [-L local address]\n");
 #else
-     printf("\tvtund <-i> [-f file] [-P port] [-L local address]\n");
+     printf("\tvtunemd <-i> [-f file] [-P port] [-L local address]\n");
 #endif
      printf("  Client:\n");
      /* I don't think these work. I'm disabling the suggestion - bish 20050601*/
-     printf("\tvtund [-f file] " /* [-P port] [-L local address] */
+     printf("\tvtunemd [-f file] " /* [-P port] [-L local address] */
 	    "[-q] [-p] [-m] [-t timeout] <host profile> <server address>\n");
 }

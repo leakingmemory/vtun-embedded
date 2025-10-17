@@ -40,10 +40,10 @@ MAN_DIR  = @mandir@
 ETC_DIR  = @sysconfdir@
 VAR_DIR  = @localstatedir@
 
-PID_FILE = ${VAR_DIR}/run/vtund.pid
-CFG_FILE = ${ETC_DIR}/vtund.conf
-STAT_DIR = ${VAR_DIR}/log/vtund
-LOCK_DIR = ${VAR_DIR}/lock/vtund
+PID_FILE = ${VAR_DIR}/run/vtunemd.pid
+CFG_FILE = ${ETC_DIR}/vtunemd.conf
+STAT_DIR = ${VAR_DIR}/log/vtunemd
+LOCK_DIR = ${VAR_DIR}/lock/vtunemd
 
 DEFS = -DVTUN_CONFIG_FILE=\"$(CFG_FILE)\" -DVTUN_PID_FILE=\"$(PID_FILE)\" \
        -DVTUN_STAT_DIR=\"$(STAT_DIR)\" -DVTUN_LOCK_DIR=\"$(LOCK_DIR)\"
@@ -60,8 +60,8 @@ CONFIGURE_FILES = Makefile config.status config.cache config.h config.log
 %.o: %.c vtun.h lib.h
 	$(CC) $(CFLAGS) $(DEFS) -o $@ -c $<
 
-vtund: $(OBJS)
-	$(CC) $(CFLAGS) -o vtund $(OBJS) $(LFD_OBJS) $(LDFLAGS)
+vtunemd: $(OBJS)
+	$(CC) $(CFLAGS) -o vtunemd $(OBJS) $(LFD_OBJS) $(LDFLAGS)
 
 cfg_file.tab.h:
 	$(YACC) $(YACCFLAGS) -b cfg_file cfg_file.y
@@ -75,7 +75,7 @@ depend:
 	makedepend -- $(CFLAGS) -- *.c
 
 clean: clean-test
-	rm -f core cfg_file.tab.* cfg_file.lex.* *.o *~ .#* *.bak vtund
+	rm -f core cfg_file.tab.* cfg_file.lex.* *.o *~ .#* *.bak vtunemd
 
 distclean: clean
 	rm -f $(CONFIGURE_FILES)
@@ -83,19 +83,19 @@ distclean: clean
 
 install_man: 
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(MAN_DIR)/man8
-	$(INSTALL) -m 644 $(INSTALL_OWNER) vtund.8 $(DESTDIR)$(MAN_DIR)/man8
+	$(INSTALL) -m 644 $(INSTALL_OWNER) vtunemd.8 $(DESTDIR)$(MAN_DIR)/man8
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(MAN_DIR)/man5
-	$(INSTALL) -m 644 $(INSTALL_OWNER) vtund.conf.5 $(DESTDIR)$(MAN_DIR)/man5
-	rm -f $(DESTDIR)$(MAN_DIR)/man8/vtun.8 
-	ln -s vtund.8 $(DESTDIR)$(MAN_DIR)/man8/vtun.8 
+	$(INSTALL) -m 644 $(INSTALL_OWNER) vtunemd.conf.5 $(DESTDIR)$(MAN_DIR)/man5
+	rm -f $(DESTDIR)$(MAN_DIR)/man8/vtunem.8
+	ln -s vtunemd.8 $(DESTDIR)$(MAN_DIR)/man8/vtunem.8
 
 install_config: 
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(ETC_DIR)
-	if [ ! -f $(ETC_DIR)/vtund.conf ]; then \
-	  $(INSTALL) -m 600 $(INSTALL_OWNER) vtund.conf $(DESTDIR)$(ETC_DIR); \
+	if [ ! -f $(ETC_DIR)/vtunemd.conf ]; then \
+	  $(INSTALL) -m 600 $(INSTALL_OWNER) vtunemd.conf $(DESTDIR)$(ETC_DIR); \
 	fi
 
-install: vtund install_config install_man
+install: vtunemd install_config install_man
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(VAR_DIR)/run
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(STAT_DIR)
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(LOCK_DIR)

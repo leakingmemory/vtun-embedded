@@ -7,7 +7,7 @@ dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
 
-AC_INIT([vtun],[3]) dnl this needs to change via variables as in the tail
+AC_INIT([vtunem],[3]) dnl this needs to change via variables as in the tail
 AC_CONFIG_HEADERS([config.h])
 
 dnl Shapper support
@@ -175,38 +175,13 @@ fi
 
 if test "$SSL" = "yes"; then
    AC_MSG_RESULT()
-   AS_MESSAGE([checking for md5 Library and Header files ... ...])
-AC_SEARCH_HEADERS(md5.h,
-    $SSL_HDR_DIR /usr/include/openssl "" /usr/include /usr/include/ssl /usr/local/include /usr/local/ssl/include /usr/include/sys, 
-    ,
-    AC_MSG_ERROR( SSL headers not found. )
-   )
-fi
-
-if test "$SSL" = "yes"; then
-   AC_MSG_RESULT()
-   AS_MESSAGE([checking for blowfish Library and Header files ... ...])
-   AC_SEARCH_HEADERS(blowfish.h,
-    $BLOWFISH_HDR_DIR /usr/include/ssl /usr/include/openssl /usr/include /usr/local/include /usr/local/ssl/include  /usr/include/crypto,
-	AC_CHECK_LIB(crypto, BF_set_key,
-	    [
-	       LIBS="$LIBS -lcrypto"
-	       AC_DEFINE(HAVE_SSL, [1], [Define to 1 if you have openssl])
-	       AC_DEFINE(HAVE_SSL_BLOWFISH, [1], [Define to 1 if you have blowfish in openssl])
-	    ],
-	    AC_MSG_ERROR( SSL library not found. )
-	),
-	AC_MSG_ERROR( SSL headers not found. )
-   )
-fi
-
-if test "$SSL" = "yes"; then
-   AC_MSG_RESULT()
    AS_MESSAGE([checking for AES Library and Header files ... ...])
    AC_SEARCH_HEADERS(aes.h,
     $SSL_HDR_DIR /usr/include/ssl /usr/include/openssl /usr/include /usr/local/include /usr/local/ssl/include  /usr/include/crypto,
 	AC_CHECK_LIB(crypto, AES_set_encrypt_key,
 	    [
+	       LIBS="$LIBS -lcrypto"
+	       AC_DEFINE(HAVE_SSL, [1], [Define to 1 if you have openssl])
 	       AC_DEFINE(HAVE_SSL_AES, [1], [Define to 1 if you have AES in openssl])
 	    ],
 	    AC_MSG_ERROR( AES library not found. )
