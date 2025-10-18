@@ -5,7 +5,7 @@ Requires=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/vtunemd -n %i ${HOSTNAME}
+ExecStart=/usr/sbin/vtunemd -n %i ${HOSTNAME}
 EnvironmentFile=-/etc/vtunemd/%i.env
 Restart=always
 RestartSec=5

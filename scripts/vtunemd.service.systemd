@@ -5,7 +5,7 @@ Requires=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/vtunemd -n -s
+ExecStart=/usr/sbin/vtunemd -n -s
 Restart=always
 RestartSec=5
 User=root
