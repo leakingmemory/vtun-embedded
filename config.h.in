@@ -63,9 +63,6 @@
 /* Define to 1 if you have AES in openssl */
 #undef HAVE_SSL_AES
 
-/* Define to 1 if you have blowfish in openssl */
-#undef HAVE_SSL_BLOWFISH
-
 /* Define to 1 if you have EVP in openssl */
 #undef HAVE_SSL_EVP
 

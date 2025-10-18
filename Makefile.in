@@ -105,8 +105,8 @@ install: vtunemd install_config install_man
 
 # Test configuration
 TEST_DIR = tests
-TEST_CFLAGS = $(CFLAGS) -I. -DTESTING
-TEST_LDFLAGS = $(LDFLAGS) -lcheck -lm -lrt -lpthread
+TEST_CFLAGS = $(CFLAGS) $(shell pkg-config --cflags check)
+TEST_LDFLAGS = $(LDFLAGS) $(shell pkg-config --libs check)
 
 # Test sources
 TEST_SRCS = $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/test_runner.c
