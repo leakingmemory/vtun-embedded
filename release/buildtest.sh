@@ -12,5 +12,6 @@ if [ ! -f vtunemd ]; then
   echo 'Did not build the binary'
   exit 1
 fi
+make test || exit 1
 cd ..
 rm -rf vtun-embedded-$version
