@@ -22,8 +22,8 @@ CC = @CC@
 CFLAGS = @CFLAGS@ @CPPFLAGS@
 LDFLAGS = @LDFLAGS@ @LIBS@
 
-YACC = @YACC@
-YACCFLAGS = -d
+BISON = @BISON@
+BISONFLAGS = -d
 
 LEX = @LEX@
 LEXFLAGS = -t 
@@ -64,7 +64,7 @@ vtunemd: $(OBJS)
 	$(CC) $(CFLAGS) -o vtunemd $(OBJS) $(LFD_OBJS) $(LDFLAGS)
 
 cfg_file.tab.h:
-	$(YACC) $(YACCFLAGS) -b cfg_file cfg_file.y
+	$(BISON) $(BISONFLAGS) -b cfg_file cfg_file.y
 
 cfg_file.tab.c: cfg_file.y cfg_kwords.h config.h cfg_file.tab.h
 

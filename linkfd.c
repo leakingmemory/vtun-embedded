@@ -408,7 +408,7 @@ int linkfd(struct vtun_host *host)
 
      /* Initialize statstic dumps */
      if( host->flags & VTUN_STAT ){
-	char file[40];
+	char file[50];
 
         sa.sa_handler=sig_alarm;
         sigaction(SIGALRM,&sa,NULL);
