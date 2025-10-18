@@ -100,8 +100,8 @@ install: vtunemd install_config install_man
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(STAT_DIR)
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(LOCK_DIR)
 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(SBIN_DIR)
-	$(INSTALL) -m 755 $(INSTALL_OWNER) vtund $(DESTDIR)$(SBIN_DIR)
-	$(BIN_DIR)/strip $(DESTDIR)$(SBIN_DIR)/vtund
+	$(INSTALL) -m 755 $(INSTALL_OWNER) vtunemd $(DESTDIR)$(SBIN_DIR)
+	$(BIN_DIR)/strip $(DESTDIR)$(SBIN_DIR)/vtunemd
 
 # Test configuration
 TEST_DIR = tests
