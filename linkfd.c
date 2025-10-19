@@ -263,6 +263,7 @@ int lfd_linker(void)
 				break;
 			}
 			if (idle++ > 0) {  /* No input frames, check connection with ECHO */
+                lfd_reset(&buf);
 				if( proto_write(fd1, &buf, VTUN_ECHO_REQ) < 0 ){
 					vtun_syslog(LOG_ERR,"Failed to send ECHO_REQ");
 					break;
@@ -274,6 +275,12 @@ int lfd_linker(void)
 		if (send_a_packet) {
 			send_a_packet = 0;
 			tmplen = 1;
+            lfd_reset(&buf);
+            if (!lfd_ensure_capacity(&buf, tmplen)) {
+                break;
+            }
+            memset(buf.ptr, 0, tmplen);
+            buf.size = tmplen;
 			lfd_host->stat.byte_out += tmplen; 
 			if( (tmplen=lfd_run_down(&buf)) < 0 )
 				break;
@@ -299,6 +306,7 @@ int lfd_linker(void)
 				}
 				if( fl==VTUN_ECHO_REQ ){
 					/* Send ECHO reply */
+                    lfd_reset(&buf);
 					if( proto_write(fd1, &buf, VTUN_ECHO_REP) < 0 )
 						break;
 					continue;
