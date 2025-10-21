@@ -3,6 +3,7 @@
     VTun - Virtual Tunnel over TCP/IP network.
 
     Copyright (C) 1998-2016  Maxim Krasnyansky <max_mk@yahoo.com>
+    Copyright (C) 2025  Jan-Espen Oversand <sigsegv@radiotube.org>
 
     VTun has been derived from VPPP package by Maxim Krasnyansky. 
 
@@ -16,10 +17,6 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
  */
-
-/*
- * $Id: cfg_file.y,v 1.8.2.8 2016/10/01 21:27:51 mtbishop Exp $
- */ 
 
 #include "config.h"
 
@@ -75,7 +72,7 @@ int yyerror(char *s);
 %token K_PASSWD K_PROG K_PPP K_SPEED K_IFCFG K_FWALL K_ROUTE K_DEVICE 
 %token K_MULTI K_SRCADDR K_IFACE K_ADDR
 %token K_TYPE K_PROT K_NAT_HACK K_COMPRESS K_ENCRYPT K_KALIVE K_STAT
-%token K_UP K_DOWN K_SYSLOG K_IPROUTE
+%token K_UP K_DOWN K_SYSLOG K_IPROUTE K_EXPERIMENTAL
 
 %token <str> K_HOST K_ERROR
 %token <str> WORD PATH STRING
@@ -190,6 +187,10 @@ option:  '\n'
 			}
 
   | K_SYSLOG  syslog_opt
+
+  | K_EXPERIMENTAL NUM {
+                    vtun.experimental = $2;
+                }
 
   | K_ERROR		{
 			  cfg_error("Unknown option '%s'",$1);
@@ -347,6 +348,9 @@ host_option: '\n'
 			  cfg_error("Unknown option '%s'",$1);
 			  YYABORT;
 			} 
+  | K_EXPERIMENTAL NUM {
+                    parse_host->experimental = $2;
+                }
   ;
 
 compress:  
