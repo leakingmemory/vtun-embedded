@@ -97,6 +97,8 @@ struct vtun_host {
    int  zlevel;
    int  cipher;
 
+   int experimental;
+
    int  rmt_fd;
    int  loc_fd;
 
@@ -205,6 +207,7 @@ extern llist host_list;
 struct vtun_opts {
    int  timeout;
    int  persist;
+   int  experimental;
 
    char *cfg_file;
    char *pid_file;

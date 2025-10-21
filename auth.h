@@ -22,9 +22,10 @@
 
 #define VTUN_CHAL_SIZE	 16	
 
-#define ST_INIT  0
-#define ST_HOST  1
-#define ST_CHAL  2
+#define ST_INIT    0
+#define ST_HOST    1
+#define ST_CHAL    2
+#define ST_CLICHAL 3
 
 struct vtun_host * auth_server(int fd);
 int auth_client(int fd, struct vtun_host *host);
