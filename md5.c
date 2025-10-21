@@ -53,7 +53,7 @@ void md5_init(Md5Context *ctx) {
     ctx->bits = 0;
 }
 
-inline void md5_round(Md5Context *ctx, void *msg) {
+static inline void md5_round(Md5Context *ctx, void *msg) {
     uint32_t a = ctx->a,
              b = ctx->b,
              c = ctx->c,
