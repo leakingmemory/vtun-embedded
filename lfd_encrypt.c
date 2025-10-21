@@ -261,8 +261,11 @@ static int alloc_encrypt(struct vtun_host *host)
    if (prep_key(&pkey, keysize, host) != 0) return -1;
    EVP_CIPHER_CTX_init(pctx_enc);
    EVP_CIPHER_CTX_init(pctx_dec);
-   EVP_EncryptInit_ex(pctx_enc, cipher_type, NULL, NULL, NULL);
-   EVP_DecryptInit_ex(pctx_dec, cipher_type, NULL, NULL, NULL);
+   if (!EVP_EncryptInit_ex(pctx_enc, cipher_type, NULL, NULL, NULL) ||
+       !EVP_DecryptInit_ex(pctx_dec, cipher_type, NULL, NULL, NULL)) {
+        vtun_syslog(LOG_ERR,"Can't initialize cipher");
+        return -1;
+   }
    if (var_key)
    {
       EVP_CIPHER_CTX_set_key_length(pctx_enc, keysize);
