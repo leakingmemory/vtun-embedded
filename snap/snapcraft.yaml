@@ -1,0 +1,42 @@
+name: vtun-embedded
+base: core22
+version: '3.0.5'
+summary: Simple network tunneling service
+description: Simple network tunneling service compatible with vtun. Fork of vtun.
+
+grade: stable
+confinement: strict
+
+apps:
+  vtunemd:
+    command: sbin/vtunemd
+    plugs:
+      - network
+      - network-bind
+      - network-control
+      - system-observe
+      - process-control
+
+parts:
+  vtunemd:
+    plugin: make
+    source: .
+    override-build: |
+      autoreconf -i
+      ./configure
+      make
+      make install DESTDIR=$SNAPCRAFT_PART_INSTALL
+    build-packages:
+      - gcc
+      - make
+      - bison
+      - flex
+      - libssl-dev
+      - zlib1g-dev
+      - liblzo2-dev
+      - libbsd-dev
+      - autoconf
+      - build-essential
+    stage-packages:
+      - net-tools
+      - iproute2
