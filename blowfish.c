@@ -234,7 +234,7 @@ const uint32_t s_init[1024] = {
     0x3f09252d, 0xc208e69f, 0xb74e6132, 0xce77e25b, 0x578fdfe3,
     0x3ac372e6};
 
-inline uint32_t blowfish_f(BlowfishContext *ctx, uint32_t input) {
+static inline uint32_t blowfish_f(BlowfishContext *ctx, uint32_t input) {
     uint8_t b4 = (input >> 24) & 0xFF;
     uint8_t b3 = (input >> 16) & 0xFF;
     uint8_t b2 = (input >> 8) & 0xFF;
@@ -243,7 +243,7 @@ inline uint32_t blowfish_f(BlowfishContext *ctx, uint32_t input) {
     return (h ^ ctx->s[0x200 + b2]) + ctx->s[0x300 + b1];
 }
 
-inline void blowfish_encrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) {
+static inline void blowfish_encrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) {
     uint32_t tmp;
     for (int i = 0; i < 16; i++) {
         *l = *l ^ ctx->p[i];
@@ -259,7 +259,7 @@ inline void blowfish_encrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) 
     *l = *l ^ ctx->p[17];
 }
 
-inline void blowfish_decrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) {
+static inline void blowfish_decrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) {
     uint32_t tmp;
     for (int i = 17; i > 1; i--) {
         *l = *l ^ ctx->p[i];
