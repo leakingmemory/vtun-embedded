@@ -1,0 +1,24 @@
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -29,7 +29,7 @@ LEX = @LEX@
+ LEXFLAGS = -t 
+ 
+ INSTALL = @INSTALL@
+-INSTALL_OWNER = -o root -g 0
++INSTALL_OWNER = 
+ 
+ prefix = @prefix@
+ exec_prefix = @exec_prefix@
+@@ -99,9 +99,9 @@ install: vtunemd install_config install_man
+ 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(VAR_DIR)/run
+ 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(STAT_DIR)
+ 	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(LOCK_DIR)
+-	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(SBIN_DIR)
+-	$(INSTALL) -m 755 $(INSTALL_OWNER) vtunemd $(DESTDIR)$(SBIN_DIR)
+-	$(BIN_DIR)/strip $(DESTDIR)$(SBIN_DIR)/vtunemd
++	$(INSTALL) -d -m 755 $(INSTALL_OWNER) $(DESTDIR)$(BIN_DIR)
++	$(INSTALL) -m 755 $(INSTALL_OWNER) vtunemd $(DESTDIR)$(BIN_DIR)
++	/usr/bin/strip $(DESTDIR)$(BIN_DIR)/vtunemd
+ 
+ # Test configuration
+ TEST_DIR = tests

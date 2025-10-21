@@ -1,0 +1,53 @@
+name: Build & Upload Flatpak
+
+on:
+  push:
+    tags:
+      - 'flatp*'
+
+permissions:
+  contents: write
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-22.04
+
+    env:
+      APP_ID: org.radiotube.vtun-embedded
+      VERSION: 3.0.5
+      MANIFEST: flatpak/flatpak.json
+      ARCH: x86_64
+      RUNTIME_VER: 23.08
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install flatpak flatpak-builder python3
+          flatpak remote-add --user --if-not-exists \
+                 flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y org.freedesktop.Sdk/x86_64/23.08
+          flatpak install --user -y org.freedesktop.Platform/x86_64/23.08
+          flatpak install --user -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/23.08
+
+      - name: Build with flatpak-builder
+        run: |
+          flatpak-builder \
+            --user --disable-rofiles-fuse \
+            --repo=repo build-dir "${MANIFEST}"
+
+      - name: Create bundle
+        run: |
+          flatpak build-bundle repo "${APP_ID}-${VERSION}.flatpak" "${APP_ID}" \
+                 --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+                 --arch=${ARCH}
+
+      - name: Upload .flatpak to release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ env.VERSION}}"
+          files: |
+            ${{ env.APP_ID }}-${{ env.VERSION }}.flatpak

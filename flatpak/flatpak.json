@@ -1,0 +1,69 @@
+{
+  "app-id": "org.radiotube.vtun-embedded",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "23.08",
+  "sdk": "org.freedesktop.Sdk",
+  "command": "vtunemd",
+  "finish-args": [
+    "--share=network",
+    "--device=all"
+  ],
+  "modules": [
+    {
+      "name": "libmd",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://libbsd.freedesktop.org/releases/libmd-1.1.0.tar.xz",
+          "sha256": "1bd6aa42275313af3141c7cf2e5b964e8b1fd488025caf2f971f43b00776b332"
+        }
+      ]
+    },
+    {
+      "name": "libbsd",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://libbsd.freedesktop.org/releases/libbsd-0.11.7.tar.xz",
+          "sha256": "9baa186059ebbf25c06308e9f991fda31f7183c0f24931826d83aa6abd8a0261"
+        }
+      ]
+    },
+    {
+      "name": "vtunemd",
+      "builddir": true,
+      "buildsystem": "simple",
+      "config-opts": [
+        "--sysconfdir=/etc",
+        "--localstatedir=/var"
+      ],
+      "build-commands": [
+        "autoreconf -fi",
+        "./configure --prefix=/app --sysconfdir=/etc --localstatedir=/var --disable-lzo",
+        "make",
+        "make install"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": ".."
+        },
+        {
+          "type": "patch",
+          "path": "patch-nonroot.patch"
+        }
+      ],
+      "post-install": [
+        "mkdir -p /app/var/run",
+        "mkdir -p /app/var/log/vtunemd",
+        "mkdir -p /app/var/lock/vtunemd"
+      ]
+    }
+  ],
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig",
+    "*.la",
+    "*.a"
+  ]
+}
