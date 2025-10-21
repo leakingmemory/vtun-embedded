@@ -25,12 +25,13 @@
 //#define DEBUG_LFD_EXTEND_BELOW
 //#define DEBUG_LFD_REDUCE_BELOW
 //#define DEBUG_LFD_ENSURE_CAPACITY
-//#define DEBUG_LFD_SUB_EXTEND_BELOW
+#define DEBUG_LFD_SUB_EXTEND_BELOW
 //#define DEBUG_LFD_SUB_EXTEND
 //#define DEBUG_LFD_SUB_REDUCE
 //#define DEBUG_LFD_SLOW
+//#define DEBUG_LFD_SUB_SET_SIZE
 
-#define LINKFD_BUFFERS_DEBUG_MASTER (defined(DEBUG_LFD_ALLOC) || defined(DEBUG_LFD_REALLOC) || defined(DEBUG_LFD_EXTEND_BELOW) || defined(DEBUG_LFD_REDUCE_BELOW) || defined(DEBUG_LFD_ENSURE_CAPACITY) || defined(DEBUG_LFD_SUB_EXTEND_BELOW) || defined(DEBUG_LFD_SUB_EXTEND) || defined(DEBUG_LFD_SUB_REDUCE) || defined(DEBUG_LFD_SLOW))
+#define LINKFD_BUFFERS_DEBUG_MASTER (defined(DEBUG_LFD_ALLOC) || defined(DEBUG_LFD_REALLOC) || defined(DEBUG_LFD_EXTEND_BELOW) || defined(DEBUG_LFD_REDUCE_BELOW) || defined(DEBUG_LFD_ENSURE_CAPACITY) || defined(DEBUG_LFD_SUB_EXTEND_BELOW) || defined(DEBUG_LFD_SUB_EXTEND) || defined(DEBUG_LFD_SUB_REDUCE) || defined(DEBUG_LFD_SLOW) || defined(DEBUG_LFD_SUB_SET_SIZE))
 
 #include <string.h>
 #include <stdlib.h>
@@ -294,6 +295,9 @@ static inline int lfd_sub_set_size(LfdSubBuffer *sub, size_t size) {
     } else if (cur_size > size) {
         return lfd_sub_reduce(sub, cur_size - size);
     }
+#ifdef DEBUG_LFD_SUB_SET_SIZE
+    printf("lfd_sub_set_size: no change, %zu\n", size);
+#endif
     return 1;
 }
 
