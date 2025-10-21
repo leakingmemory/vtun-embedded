@@ -1,6 +1,6 @@
 name: vtun-embedded
 base: core22
-version: '3.0.5'
+version: '3.0.6'
 summary: Simple network tunneling service
 description: Simple network tunneling service compatible with vtun. Fork of vtun.
 
