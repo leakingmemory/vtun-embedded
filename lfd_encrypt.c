@@ -108,7 +108,7 @@ static int recv_msg(LfdBuffer *buf);
 static int send_ib_mesg(LfdSubBuffer *buf);
 static int recv_ib_mesg(LfdBuffer *buf);
 
-static int prep_key(char **key, int size, struct vtun_host *host)
+int lfd_encrypt_prep_key(char **key, int size, struct vtun_host *host)
 {
    int tmplen, halflen;
    char *hashkey;
@@ -143,7 +143,7 @@ static int prep_key(char **key, int size, struct vtun_host *host)
    return 0;
 }
 
-static void free_key (char *key)
+void lfd_encrypt_free_key (char *key)
 {
    free(key);
 }
@@ -256,7 +256,7 @@ static int alloc_encrypt(struct vtun_host *host)
       break;
    } /* switch(host->cipher) */
 
-   if (prep_key(&pkey, keysize, host) != 0) return -1;
+   if (lfd_encrypt_prep_key(&pkey, keysize, host) != 0) return -1;
    EVP_CIPHER_CTX_init(pctx_enc);
    EVP_CIPHER_CTX_init(pctx_dec);
    if (!EVP_EncryptInit_ex(pctx_enc, cipher_type, NULL, NULL, NULL) ||
@@ -290,7 +290,7 @@ static int alloc_encrypt(struct vtun_host *host)
 
 static int free_encrypt()
 {
-   free_key(pkey); pkey = NULL;
+   lfd_encrypt_free_key(pkey); pkey = NULL;
 
    EVP_CIPHER_CTX_free(ctx_enc);
    EVP_CIPHER_CTX_free(ctx_dec);

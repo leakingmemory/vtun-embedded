@@ -386,11 +386,17 @@ int linkfd(struct vtun_host *host)
 	lfd_add_mod(&lfd_lzo);
 
      if(host->flags & VTUN_ENCRYPT) {
-       if(host->cipher == VTUN_LEGACY_ENCRYPT) {
-	 lfd_add_mod(&lfd_legacy_encrypt);
-       } else {
-	 lfd_add_mod(&lfd_encrypt);
-       }
+        switch (host->cipher) {
+            case VTUN_LEGACY_ENCRYPT:
+                lfd_add_mod(&lfd_legacy_encrypt);
+                break;
+            case VTUN_ENC_AES128GCM:
+            case VTUN_ENC_AES256GCM:
+                lfd_add_mod(&lfd_gcm_encrypt);
+                break;
+            default:
+                lfd_add_mod(&lfd_encrypt);
+        }
      }
      
      if(host->flags & VTUN_SHAPE)
