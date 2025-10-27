@@ -46,9 +46,7 @@
 #include <string.h>
 #include <time.h>
 
-#ifdef __linux__
 #include <arpa/inet.h>
-#endif
 
 #include "vtun.h"
 #include "linkfd.h"
@@ -168,7 +166,7 @@ static int alloc_encrypt(struct vtun_host *host)
    enc_init_first_time = 1;   
    dec_init_first_time = 1;   
 
-   RAND_bytes((char *)&sequence_num, 4);
+   RAND_bytes((unsigned char *)&sequence_num, 4);
    gibberish = 0;
    gib_time_start = 0;
    phost = host;
@@ -271,8 +269,8 @@ static int alloc_encrypt(struct vtun_host *host)
       EVP_CIPHER_CTX_set_key_length(pctx_enc, keysize);
       EVP_CIPHER_CTX_set_key_length(pctx_dec, keysize);
    }
-   EVP_EncryptInit_ex(pctx_enc, NULL, NULL, pkey, NULL);
-   EVP_DecryptInit_ex(pctx_dec, NULL, NULL, pkey, NULL);
+   EVP_EncryptInit_ex(pctx_enc, NULL, NULL, (unsigned char *) pkey, NULL);
+   EVP_DecryptInit_ex(pctx_dec, NULL, NULL, (unsigned char *) pkey, NULL);
    EVP_CIPHER_CTX_set_padding(pctx_enc, 0);
    EVP_CIPHER_CTX_set_padding(pctx_dec, 0);
    if (sb_init)
@@ -452,8 +450,8 @@ static int cipher_enc_init(char * iv)
    EVP_EncryptInit_ex(ctx_enc, cipher_type, NULL, NULL, NULL);
    if (var_key)
       EVP_CIPHER_CTX_set_key_length(ctx_enc, keysize);
-   EVP_EncryptInit_ex(ctx_enc, NULL, NULL, pkey, NULL);
-   EVP_EncryptInit_ex(ctx_enc, NULL, NULL, NULL, iv);
+   EVP_EncryptInit_ex(ctx_enc, NULL, NULL, (unsigned char *) pkey, NULL);
+   EVP_EncryptInit_ex(ctx_enc, NULL, NULL, NULL, (unsigned char *) iv);
    EVP_CIPHER_CTX_set_padding(ctx_enc, 0);
    if (enc_init_first_time)
    {
@@ -542,8 +540,8 @@ static int cipher_dec_init(char * iv)
    EVP_DecryptInit_ex(ctx_dec, cipher_type, NULL, NULL, NULL);
    if (var_key)
       EVP_CIPHER_CTX_set_key_length(ctx_dec, keysize);
-   EVP_DecryptInit_ex(ctx_dec, NULL, NULL, pkey, NULL);
-   EVP_DecryptInit_ex(ctx_dec, NULL, NULL, NULL, iv);
+   EVP_DecryptInit_ex(ctx_dec, NULL, NULL, (unsigned char *) pkey, NULL);
+   EVP_DecryptInit_ex(ctx_dec, NULL, NULL, NULL, (unsigned char *) iv);
    EVP_CIPHER_CTX_set_padding(ctx_dec, 0);
    if (dec_init_first_time)
    {
@@ -565,7 +563,7 @@ static int send_msg(LfdBuffer *buf)
          }
          in_ptr = buf->ptr;
          iv = malloc(blocksize);
-         RAND_bytes(iv, blocksize);
+         RAND_bytes((unsigned char *) iv, blocksize);
          strncpy(in_ptr,"ivec",4);
          in_ptr += 4;
          memcpy(in_ptr,iv,blocksize);
@@ -573,12 +571,12 @@ static int send_msg(LfdBuffer *buf)
          cipher_enc_init(iv);
 
          memset(iv,0,blocksize); free(iv); iv = NULL;
-         RAND_bytes(in_ptr, blocksize - 4);
+         RAND_bytes((unsigned char *) in_ptr, blocksize - 4);
 
          in_ptr = buf->ptr;
          outlen = blocksize*2;
-         EVP_EncryptUpdate(ctx_enc_ecb, in_ptr,
-            &outlen, in_ptr, blocksize*2);
+         EVP_EncryptUpdate(ctx_enc_ecb, (unsigned char *) in_ptr,
+            &outlen, (unsigned char *) in_ptr, blocksize*2);
          len = outlen;
          cipher_enc_state = CIPHER_SEQUENCE;
    } else {
@@ -597,7 +595,7 @@ static int recv_msg(LfdBuffer *buf)
          in_ptr = buf->ptr;
          iv = malloc(blocksize);
          outlen = blocksize*2;
-         EVP_DecryptUpdate(ctx_dec_ecb, in_ptr, &outlen, in_ptr, blocksize*2);
+         EVP_DecryptUpdate(ctx_dec_ecb, (unsigned char *) in_ptr, &outlen, (unsigned char *) in_ptr, blocksize*2);
          
          if ( !strncmp(in_ptr, "ivec", 4) )
          {
