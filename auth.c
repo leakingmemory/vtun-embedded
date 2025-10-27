@@ -65,7 +65,7 @@
 
 static void gen_chal(char *buf)
 {
-   RAND_bytes(buf, VTUN_CHAL_SIZE);
+   RAND_bytes((unsigned char *) buf, VTUN_CHAL_SIZE);
 }
 
 static void encrypt_chal(char *chal, char *pwd)

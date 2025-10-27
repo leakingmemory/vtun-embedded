@@ -99,7 +99,7 @@ int connect_t(int s, struct sockaddr *svr, time_t timeout)
      FD_ZERO(&fdset);
      FD_SET(s,&fdset);
      if( select(s+1,NULL,&fdset,NULL,timeout?&tv:NULL) > 0 ){
-        int l=sizeof(errno);	 
+        socklen_t l=sizeof(errno);	 
         errno=0;
         getsockopt(s,SOL_SOCKET,SO_ERROR,&errno,&l);
      } else
@@ -146,7 +146,7 @@ int udp_session(struct vtun_host *host)
 {
      struct sockaddr_in saddr; 
      short port;
-     int s,opt;
+     int s;
      extern int is_rmt_fd_connected;
 
      if( (s=socket(AF_INET,SOCK_DGRAM,0))== -1 ){
@@ -154,9 +154,11 @@ int udp_session(struct vtun_host *host)
         return -1;
      }
 
-     opt=1;
-     setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
-    
+     {
+        int opt=1;
+        setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
+     } 
+
      /* Set local address and port */
      local_addr(&saddr, host, 1);
      if( bind(s,(struct sockaddr *)&saddr,sizeof(saddr)) ){
@@ -164,7 +166,7 @@ int udp_session(struct vtun_host *host)
         return -1;
      }
 
-     opt = sizeof(saddr);
+     socklen_t opt = sizeof(saddr);
      if( getsockname(s,(struct sockaddr *)&saddr,&opt) ){
         vtun_syslog(LOG_ERR,"Can't get socket name");
         return -1;
@@ -220,11 +222,9 @@ int udp_session(struct vtun_host *host)
 /* Set local address */
 int local_addr(struct sockaddr_in *addr, struct vtun_host *host, int con)
 {
-     int opt;
-
      if( con ){
         /* Use address of the already connected socket. */
-        opt = sizeof(struct sockaddr_in);
+        socklen_t opt = sizeof(struct sockaddr_in);
         if( getsockname(host->rmt_fd, (struct sockaddr *)addr, &opt) < 0 ){
            vtun_syslog(LOG_ERR,"Can't get local socket address");
            return -1; 

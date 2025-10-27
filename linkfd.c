@@ -385,12 +385,13 @@ int linkfd(struct vtun_host *host)
      if(host->flags & VTUN_LZO)
 	lfd_add_mod(&lfd_lzo);
 
-     if(host->flags & VTUN_ENCRYPT)
+     if(host->flags & VTUN_ENCRYPT) {
        if(host->cipher == VTUN_LEGACY_ENCRYPT) {
 	 lfd_add_mod(&lfd_legacy_encrypt);
        } else {
 	 lfd_add_mod(&lfd_encrypt);
        }
+     }
      
      if(host->flags & VTUN_SHAPE)
 	lfd_add_mod(&lfd_shaper);

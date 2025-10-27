@@ -64,7 +64,7 @@ static void connection(int sock)
      struct vtun_host *host;
      struct sigaction sa;
      char *ip;
-     int opt;
+     socklen_t opt;
 
      opt = sizeof(struct sockaddr_in);
      if( getpeername(sock, (struct sockaddr *) &cl_addr, &opt) ){
@@ -156,7 +156,7 @@ static void listener(void)
      set_title("waiting for connections on port %d", vtun.bind_addr.port);
 
      while( (!server_term) || (server_term == VTUN_SIG_HUP) ){
-        opt=sizeof(cl_addr);
+        socklen_t opt=sizeof(cl_addr);
 	if( (s1=accept(s,(struct sockaddr *)&cl_addr,&opt)) < 0 )
 	   continue; 
 

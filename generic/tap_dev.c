@@ -63,7 +63,7 @@ int tap_close(int fd, char *dev)
 /* Write frames to TAP device */
 int tap_write(int fd, LfdBuffer *buf)
 {
-    auto res = write(fd, buf->ptr, buf->size);
+    ssize_t res = write(fd, buf->ptr, buf->size);
     lfd_reset(buf);
     return res;
 }
