@@ -22,7 +22,10 @@ vtunemd \- VTun(Virtual Tunnel) daemon.
 [ 
 .I -f file 
 ] 
-[ 
+[
+.I -z file
+]
+[
 .I -P port 
 ]
 .LP
@@ -75,6 +78,11 @@ to any kernel parts.
 Read config information from the
 .I file
 (full path required). By default vtunemd uses /etc/vtunemd.conf
+.TP
+.I -z file
+Write pid to the file
+.I file
+(full path required).
 .TP
 .I -n 
 Do not become daemon (required on no-MMU systems).

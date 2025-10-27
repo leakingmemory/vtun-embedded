@@ -40,7 +40,7 @@
 #include "lib.h"
 #include "compat.h"
 
-#define OPTSTRING "mif:P:L:t:npq"
+#define OPTSTRING "mif:z:P:L:t:npq"
 #ifdef HAVE_WORKING_FORK
 #  define SERVOPT_STRING "s"
 #else
@@ -77,7 +77,10 @@ int vtun_main(int argc, char *argv[], char *env[])
      dofork = 1;
 #endif
 
+     memset(&vtun,0,sizeof(vtun));
+
      vtun.cfg_file = VTUN_CONFIG_FILE;
+     vtun.pid_file = VTUN_PID_FILE;
      vtun.persist = -1;
      vtun.timeout = -1;
 	
@@ -130,6 +133,9 @@ int vtun_main(int argc, char *argv[], char *env[])
 	    case 'f':
 		vtun.cfg_file = strdup(optarg);
 		break;
+        case 'z':
+        vtun.pid_file = strdup(optarg);
+        break;
 	    case 'n':
 		daemon = 0;
 		break;
@@ -265,7 +271,7 @@ static void write_pid(void)
 {
      FILE *f;
 
-     if( !(f=fopen(VTUN_PID_FILE,"w")) ){
+     if( !(f=fopen(vtun.pid_file,"w")) ){
         vtun_syslog(LOG_ERR,"Can't write PID file");
         return;
      }

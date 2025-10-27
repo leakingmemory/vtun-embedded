@@ -207,6 +207,7 @@ struct vtun_opts {
    int  persist;
 
    char *cfg_file;
+   char *pid_file;
 
    char *shell; 	 /* Shell */
    char *ppp;		 /* Command to configure ppp devices */
