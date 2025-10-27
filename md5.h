@@ -32,21 +32,22 @@ void md5_init(Md5Context *ctx);
 size_t md5_update(Md5Context *ctx, void *buf, size_t len);
 void md5_final(md5_hash *result, Md5Context *ctx, void *buf, size_t len);
 
-static inline void md5_tohex(md5_hex_str *result, md5_hash md) {
-	for (int i = 0; i < 16; i++) {
+static void md5_tohex(md5_hex_str *result, md5_hash md) {
+	int i;
+	for (i = 0; i < 16; i++) {
 		(*result)[i << 1] = (md[i] >> 4) <= 9 ? ((md[i] >> 4) + '0') : ((md[i] >> 4) + 'a' - 10);
 		(*result)[(i << 1) + 1] = (md[i] & 0xf) <= 9 ? ((md[i] & 0xf) + '0') : ((md[i] & 0xf) + 'a' - 10);
 	}
 	(*result)[32] = '\0';
 }
 
-static inline void md5(md5_hash *result, void *buf, size_t len) {
+static void md5(md5_hash *result, void *buf, size_t len) {
 	Md5Context ctx;
 	md5_init(&ctx);
 	return md5_final(result, &ctx, buf, len);
 }
 
-static inline void md5_hex(md5_hex_str *str, void *buf, size_t len) {
+static void md5_hex(md5_hex_str *str, void *buf, size_t len) {
 	md5_hash md;
 	md5(&md, buf, len);
 	md5_tohex(str, md);

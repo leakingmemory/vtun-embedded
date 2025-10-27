@@ -87,7 +87,8 @@ static int legacy_encrypt_buf(LfdBuffer *buf)
       *((char *) buf->ptr) = (char) pad;
    }
 
-   for (size_t off=0; off < buf->size; off += 8) {
+   size_t off;
+   for (off=0; off < buf->size; off += 8) {
       blowfish_encrypt_8bytes_ecb(&key, buf->ptr + off);
    }
 
@@ -96,9 +97,12 @@ static int legacy_encrypt_buf(LfdBuffer *buf)
 
 static int legacy_decrypt_buf(LfdBuffer *buf)
 {
-   for (size_t p = 0; p < buf->size; p += 8) {
-      void *blk = lfd_get_ptr(buf, p);
-      blowfish_decrypt_8bytes_ecb(&key, blk);
+   {
+      size_t p;
+      for (p = 0; p < buf->size; p += 8) {
+         void *blk = lfd_get_ptr(buf, p);
+         blowfish_decrypt_8bytes_ecb(&key, blk);
+      }
    }
 
    int p = ((char *) buf->ptr)[0];

@@ -234,7 +234,7 @@ const uint32_t s_init[1024] = {
     0x3f09252d, 0xc208e69f, 0xb74e6132, 0xce77e25b, 0x578fdfe3,
     0x3ac372e6};
 
-static inline uint32_t blowfish_f(BlowfishContext *ctx, uint32_t input) {
+static uint32_t blowfish_f(BlowfishContext *ctx, uint32_t input) {
     uint8_t b4 = (input >> 24) & 0xFF;
     uint8_t b3 = (input >> 16) & 0xFF;
     uint8_t b2 = (input >> 8) & 0xFF;
@@ -243,9 +243,10 @@ static inline uint32_t blowfish_f(BlowfishContext *ctx, uint32_t input) {
     return (h ^ ctx->s[0x200 + b2]) + ctx->s[0x300 + b1];
 }
 
-static inline void blowfish_encrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) {
+static void blowfish_encrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) {
     uint32_t tmp;
-    for (int i = 0; i < 16; i++) {
+    int i;
+    for (i = 0; i < 16; i++) {
         *l = *l ^ ctx->p[i];
         *r = *r ^ blowfish_f(ctx, *l);
         tmp = *l;
@@ -259,9 +260,10 @@ static inline void blowfish_encrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32
     *l = *l ^ ctx->p[17];
 }
 
-static inline void blowfish_decrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) {
+static void blowfish_decrypt_lr(BlowfishContext *ctx, uint32_t *l, uint32_t *r) {
     uint32_t tmp;
-    for (int i = 17; i > 1; i--) {
+    int i;
+    for (i = 17; i > 1; i--) {
         *l = *l ^ ctx->p[i];
         *r = *r ^ blowfish_f(ctx, *l);
         tmp = *l;
@@ -279,28 +281,30 @@ int blowfish_init(BlowfishContext *ctx, void *key, int key_length_bytes) {
     if (key_length_bytes < 1 || key_length_bytes > 72) {
         return 0;
     }
-    for (int i = 0; i < 18; i++) {
+    int i;
+    for (i = 0; i < 18; i++) {
         ctx->p[i] = p_init[i];
     }
-    for (int i = 0; i < 1024; i++) {
+    for (i = 0; i < 1024; i++) {
         ctx->s[i] = s_init[i];
     }
     uint8_t *K = key;
     int keypos = 0;
-    for (int i = 0; i < 18; i++) {
+    for (i = 0; i < 18; i++) {
         uint32_t k = 0;
-        for (int j = 0; j < 4; j++) {
+        int j;
+        for (j = 0; j < 4; j++) {
             k = (k << 8) | K[(keypos++) % key_length_bytes];
         }
         ctx->p[i] = ctx->p[i] ^ k;
     }
     uint32_t l = 0, r = 0;
-    for (int i = 0; i < 18; i += 2) {
+    for (i = 0; i < 18; i += 2) {
         blowfish_encrypt_lr(ctx, &l, &r);
         ctx->p[i] = l;
         ctx->p[i + 1] = r;
     }
-    for (int i = 0; i < 1024; i += 2) {
+    for (i = 0; i < 1024; i += 2) {
         blowfish_encrypt_lr(ctx, &l, &r);
         ctx->s[i] = l;
         ctx->s[i + 1] = r;

@@ -53,7 +53,7 @@ void md5_init(Md5Context *ctx) {
     ctx->bits = 0;
 }
 
-static inline void md5_round(Md5Context *ctx, void *msg) {
+static void md5_round(Md5Context *ctx, void *msg) {
     uint32_t a = ctx->a,
              b = ctx->b,
              c = ctx->c,
@@ -61,11 +61,13 @@ static inline void md5_round(Md5Context *ctx, void *msg) {
     uint32_t m[16];
     {
         uint32_t *p = (uint32_t *) msg;
-        for (int i = 0; i < 16; i++) {
+        int i;
+        for (i = 0; i < 16; i++) {
             m[i] = le32toh(p[i]);
         }
     }
-    for (int i = 0; i < 64; i++) {
+    int i;
+    for (i = 0; i < 64; i++) {
         uint32_t f, g;
         if (i < 16) {
             f = (b & c) | ((~b) & d);
@@ -94,7 +96,8 @@ static inline void md5_round(Md5Context *ctx, void *msg) {
 
 size_t md5_update(Md5Context *ctx, void *buf, size_t len) {
     len &= ~((size_t) 63);
-	for (size_t off = 0; off < len; off += 64) {
+    size_t off;
+	for (off = 0; off < len; off += 64) {
 		md5_round(ctx, buf + off);
 	}
 	ctx->bits += len << 3;
@@ -114,13 +117,15 @@ void md5_final(md5_hash *result, Md5Context *ctx, void *buf, size_t len) {
 	padded[len] = 0x80;
 	len++;
 	if (len > 56) {
-		for (size_t i = len; i < 64; i++) {
+        size_t i;
+		for (i = len; i < 64; i++) {
 			padded[i] = 0;
 		}
 		md5_round(ctx, padded);
 		len = 0;
 	}
-	for (size_t i = len; i < 56; i++) {
+    size_t i;
+	for (i = len; i < 56; i++) {
 		padded[i] = 0;
 	}
 	ctx->bits = htole64(ctx->bits);
