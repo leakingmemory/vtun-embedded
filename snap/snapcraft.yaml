@@ -1,15 +1,28 @@
 name: vtun-embedded
 base: core22
 version: '3.0.6'
-summary: Simple network tunneling service
+license: GPL-2.0-or-later
+title: simple network tunneling service
+summary: vtun-embedded, fork of vtun, simple network tunneling service
 description: Simple network tunneling service compatible with vtun. Fork of vtun.
+
+contact:
+  - sigsegv@radiotube.org
+
+issues:
+  - https://github.com/leakingmemory/vtun-embedded/issues
+website:
+  - https://github.com/leakingmemory/vtun-embedded
+
+source-code:
+  - https://github.com/leakingmemory/vtun-embedded.git
 
 grade: stable
 confinement: strict
 
 apps:
   vtunemd:
-    command: sbin/vtunemd
+    command: bin/vtunemd
     plugs:
       - network
       - network-bind
@@ -22,8 +35,9 @@ parts:
     plugin: make
     source: .
     override-build: |
+      patch -p1 -N < flatpak/patch-nonroot.patch
       autoreconf -i
-      ./configure
+      ./configure --prefix=/
       make
       make install DESTDIR=$SNAPCRAFT_PART_INSTALL
     build-packages:
@@ -37,6 +51,7 @@ parts:
       - libbsd-dev
       - autoconf
       - build-essential
+      - patch
     stage-packages:
       - net-tools
       - iproute2
