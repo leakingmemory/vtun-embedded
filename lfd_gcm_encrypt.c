@@ -59,6 +59,8 @@ static uint32_t gibberish_counter;
 static time_t gibberish_time;
 static int encryption_inited;
 static int decryption_inited;
+static int encryption_keyschedule_done;
+static int decryption_keyschedule_done;
 static int request_reinit;
 
 static int alloc_gcm_encrypt(struct vtun_host *host) {
@@ -96,6 +98,8 @@ static int alloc_gcm_encrypt(struct vtun_host *host) {
     gibberish_counter = 0;
     encryption_inited = 0;
     decryption_inited = 0;
+    encryption_keyschedule_done = 0;
+    decryption_keyschedule_done = 0;
     request_reinit = 0;
     vtun_syslog(LOG_WARNING, "AES-GCM is experimental, compatibility is not guaranteed");
     vtun_syslog(LOG_INFO, "AES-GCM is ready to start");
@@ -142,7 +146,11 @@ static int gcm_encrypt(LfdBuffer *buf) {
     memset(ivdata + 24, 0, 8);
     uint8_t noncebuf[SHA256_DIGEST_LENGTH];
     uint8_t *nonce = SHA256(ivdata, 32, noncebuf);
-    EVP_EncryptInit_ex(ctx_enc, cipher, NULL, pkey, nonce);
+    if (!encryption_keyschedule_done) {
+        EVP_EncryptInit_ex(ctx_enc, cipher, NULL, pkey, NULL);
+        encryption_keyschedule_done = 1;
+    }
+    EVP_EncryptInit_ex(ctx_enc, NULL, NULL, NULL, nonce);
     EVP_CIPHER_CTX_set_padding(ctx_enc, 0);
     size_t len = lfd_sub_get_size(&sub);
     size_t pad = 16 - (len & 15);
@@ -206,7 +214,11 @@ static int gcm_decrypt(LfdBuffer *buf) {
     memset(ivdata + 24, 0, 8);
     uint8_t noncebuf[SHA256_DIGEST_LENGTH];
     uint8_t *nonce = SHA256(ivdata, 32, noncebuf);
-    EVP_DecryptInit_ex(ctx_dec, cipher, NULL, pkey, nonce);
+    if (!decryption_keyschedule_done) {
+        EVP_DecryptInit_ex(ctx_dec, cipher, NULL, pkey, NULL);
+        decryption_keyschedule_done = 1;
+    }
+    EVP_DecryptInit_ex(ctx_dec, NULL, NULL, NULL, nonce);
     EVP_CIPHER_CTX_set_padding(ctx_dec, 0);
     size_t len = buf->size;
     if (len < 16 || (len & 15) != 0) {
