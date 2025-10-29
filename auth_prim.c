@@ -38,7 +38,7 @@
 
 void auth_prim_gen_chal(char *buf)
 {
-    RAND_bytes(buf, VTUN_CHAL_SIZE);
+    RAND_bytes((unsigned char *) buf, VTUN_CHAL_SIZE);
 }
 
 #else /* HAVE_SSL */

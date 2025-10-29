@@ -73,7 +73,7 @@ static void decrypt_chal_v2(char *chal, char *pwd) {
 
     for(int i=0; i < VTUN_CHAL_SIZE; i += 16 ) {
         int outlen = 16;
-        EVP_DecryptUpdate(ctx, chal + i, &outlen, chal + i, 16 <= (VTUN_CHAL_SIZE - i) ? 16 : VTUN_CHAL_SIZE - i);
+        EVP_DecryptUpdate(ctx, (unsigned char *) (chal + i), &outlen, (unsigned char *) (chal + i), 16 <= (VTUN_CHAL_SIZE - i) ? 16 : VTUN_CHAL_SIZE - i);
     }
 
     EVP_CIPHER_CTX_free(ctx);
@@ -94,7 +94,7 @@ static void encrypt_chal_v2(char *chal, char *pwd) {
 
     for(int i=0; i < VTUN_CHAL_SIZE; i += 16 ) {
         int outlen = 16;
-        EVP_EncryptUpdate(ctx, chal + i, &outlen, chal + i, 16 <= (VTUN_CHAL_SIZE - i) ? 16 : VTUN_CHAL_SIZE - i);
+        EVP_EncryptUpdate(ctx, (unsigned char *) (chal + i), &outlen, (unsigned char *) (chal + i), 16 <= (VTUN_CHAL_SIZE - i) ? 16 : VTUN_CHAL_SIZE - i);
     }
 
     EVP_CIPHER_CTX_free(ctx);
