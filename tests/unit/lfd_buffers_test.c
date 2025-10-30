@@ -75,7 +75,7 @@ START_TEST(lfd_reduce_below_test) {
 		buf.size = 10;
 		lfd_reduce_below(&buf, red);
 		if (red < 10) {
-			if (strcmp("hellohype" + red, buf.ptr)) {
+			if (strcmp(&(((const char *) "hellohype")[red]), buf.ptr)) {
 				fail("content");
 			}
 			if (buf.size != (10 - red)) {
