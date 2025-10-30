@@ -1,7 +1,10 @@
+VTun-embedded - Fork of VTun, Virtual Tunnel over TCP/IP network.
+Copyright (C) 2025 Jan-Espen Oversand <sigsegv@radiotube.org>
+
 VTun - Virtual Tunnel over TCP/IP network.
 Copyright (C) 1998-2016 Maxim Krasnyansky <max_mk@yahoo.com>
 
-This product includes software developed by the OpenSSL Project
+This product links against software developed by the OpenSSL Project
 for use in the OpenSSL Toolkit. (http://www.openssl.org/).
 
 Copyright (c) 1998-2004 The OpenSSL Project.  All rights reserved.
@@ -50,16 +53,14 @@ could not be found in default location:
 To compile and install run:
   make install
 
-Read manual page for 'vtund' and the config file example for
+Read manual page for 'vtunemd' and the config file example for
 configuration and other suggestions.
 
-VTun has the mailing list vtun-users@lists.sourceforge.net
-To receive information about mailing list and how to subscribe to it,
-send an e-mail to vtun-users-request@lists.sourceforge.net with the
-word 'help' in the Subject.
-
-If you have any suggestions, ideas, wishes send them to 
-vtun-users@lists.sourceforge.net
+If you have any suggestions, ideas, wishes please create an issue
+at github.com/leakingmemory/vtun-embedded or send them to me directly
+at sigsegv@radiotube.org
  
 Vtun (c) Maxim Krasnyansky
-Maintained loosely by Bishop Clark <bishop@platypus.bc.ca>
+Maintained loosely by Bishop Clark <bishop@platypus.bc.ca> up until 2016
+Forked as vtun-embedded in 2025.
+

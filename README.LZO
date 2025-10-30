@@ -1,3 +1,10 @@
+2025-10-30 J-E O:
+
+This is the original LZO readme from VTun. I do not completely
+agree that there is a licensing issue with most uses of
+vtun-embedded today. Dynamic linking means that the projects
+do not neccesarily combine into one single work. The original
+VTun notice will be retained as follows:
 
 The dual-license on OpenSSL clashes with the more restrictive GPL
 licensing on LZO.  In most cases, an exemption on the GPL-licensed
