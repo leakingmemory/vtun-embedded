@@ -55,9 +55,25 @@ int  parse_syslog(char *facility);
 
 int yyparse(void);
 int yylex(void);	
-int yyerror(char *s); 
+int yyerror(char *s);
+void yy_scan_string(const char *str);
+void yylex_destroy();
 
 #define YYERROR_VERBOSE 1
+
+#define CFG_ERROR_SYSLOG 0
+#define CFG_ERROR_PRINTF 1
+
+static int cfg_error_logger = CFG_ERROR_SYSLOG;
+
+#define CFG_LOG(loglevel, fmt, ...) { \
+    if (cfg_error_logger == CFG_ERROR_SYSLOG) { \
+        vtun_syslog(loglevel, fmt, ##__VA_ARGS__); \
+    } else if (cfg_error_logger == CFG_ERROR_PRINTF) { \
+        printf(fmt, ##__VA_ARGS__); \
+        printf("\n"); \
+    } \
+}
 
 %}
 
@@ -493,7 +509,7 @@ prog_option:
 
 int yyerror(char *s) 
 {
-   vtun_syslog(LOG_ERR, "%s line %d\n", s, lineno);
+   CFG_LOG(LOG_ERR, "%s line %d\n", s, lineno);
    return 0;
 }
 
@@ -665,32 +681,53 @@ int parse_syslog(char *facility)
    return -1;
 }
 
+void before_read_config()
+{
+   static int cfg_loaded = 0;
+
+   if( cfg_loaded ){
+      free_host_list();
+      CFG_LOG(LOG_INFO,"Reloading configuration file");
+   }
+   cfg_loaded = 1;
+
+   llist_init(&host_list);
+}
+
+int after_read_config()
+{
+   free_host(&default_host, NULL);
+
+   return !llist_empty(&host_list);
+}
+
 /* 
  * Read config file. 
  */ 
 int read_config(char *file) 
 {
-   static int cfg_loaded = 0;
    extern FILE *yyin;
 
-   if( cfg_loaded ){
-      free_host_list();
-      vtun_syslog(LOG_INFO,"Reloading configuration file");
-   }	 
-   cfg_loaded = 1;
-
-   llist_init(&host_list);
+   before_read_config();
 
    if( !(yyin = fopen(file,"r")) ){
-      vtun_syslog(LOG_ERR,"Can not open %s", file);
+      CFG_LOG(LOG_ERR,"Can not open %s", file);
       return -1;      
    }
 
    yyparse();
 
-   free_host(&default_host, NULL);
-
    fclose(yyin);
-  
-   return !llist_empty(&host_list);     
+
+   return after_read_config();
+}
+
+void parse_config_string(const char *str) {
+    yy_scan_string(str);
+    yyparse();
+    yylex_destroy();
+}
+
+void set_cfg_error_printf() {
+    cfg_error_logger = CFG_ERROR_PRINTF;
 }

@@ -21,6 +21,7 @@
 
 extern Suite *buffers_suite(void);
 extern Suite *legacy_crypto_suite(void);
+extern Suite *config_suite(void);
 
 int main(void)
 {
@@ -29,6 +30,7 @@ int main(void)
 
     sr = srunner_create(buffers_suite());
 	srunner_add_suite(sr, legacy_crypto_suite());
+    srunner_add_suite(sr, config_suite());
 
     srunner_run_all(sr, CK_NORMAL);
     number_failed = srunner_ntests_failed(sr);

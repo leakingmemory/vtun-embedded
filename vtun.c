@@ -59,7 +59,38 @@ extern int optind,opterr,optopt;
 extern char *optarg;
 
 /* for the NATHack bit.  Is our UDP session connected? */
-int is_rmt_fd_connected=1; 
+int is_rmt_fd_connected=1;
+
+void init_config() {
+     memset(&vtun,0,sizeof(vtun));
+
+     vtun.cfg_file = VTUN_CONFIG_FILE;
+     vtun.pid_file = VTUN_PID_FILE;
+     vtun.persist = -1;
+     vtun.timeout = -1;
+
+     /* Dup strings because parser will try to free them */
+     vtun.ppp   = strdup("/usr/sbin/pppd");
+     vtun.ifcfg = strdup("/sbin/ifconfig");
+     vtun.route = strdup("/sbin/route");
+     vtun.fwall = strdup("/sbin/ipchains");
+     vtun.iproute = strdup("/sbin/ip");
+
+     vtun.svr_name = NULL;
+     vtun.svr_addr = NULL;
+     vtun.bind_addr.port = -1;
+     vtun.svr_type = -1;
+     vtun.syslog   = LOG_DAEMON;
+
+     /* Initialize default host options */
+     memset(&default_host, 0, sizeof(default_host));
+     default_host.flags   = VTUN_TTY | VTUN_TCP;
+     default_host.multi   = VTUN_MULTI_ALLOW;
+     default_host.timeout = VTUN_CONNECT_TIMEOUT;
+     default_host.ka_interval = 30;
+     default_host.ka_maxfail  = 4;
+     default_host.loc_fd = default_host.rmt_fd = -1;
+}
 
 int vtun_main(int argc, char *argv[], char *env[])
 {
@@ -77,34 +108,7 @@ int vtun_main(int argc, char *argv[], char *env[])
      dofork = 1;
 #endif
 
-     memset(&vtun,0,sizeof(vtun));
-
-     vtun.cfg_file = VTUN_CONFIG_FILE;
-     vtun.pid_file = VTUN_PID_FILE;
-     vtun.persist = -1;
-     vtun.timeout = -1;
-	
-     /* Dup strings because parser will try to free them */
-     vtun.ppp   = strdup("/usr/sbin/pppd");
-     vtun.ifcfg = strdup("/sbin/ifconfig");
-     vtun.route = strdup("/sbin/route");
-     vtun.fwall = strdup("/sbin/ipchains");	
-     vtun.iproute = strdup("/sbin/ip");	
-
-     vtun.svr_name = NULL;
-     vtun.svr_addr = NULL;
-     vtun.bind_addr.port = -1;
-     vtun.svr_type = -1;
-     vtun.syslog   = LOG_DAEMON;
-
-     /* Initialize default host options */
-     memset(&default_host, 0, sizeof(default_host));
-     default_host.flags   = VTUN_TTY | VTUN_TCP;
-     default_host.multi   = VTUN_MULTI_ALLOW;
-     default_host.timeout = VTUN_CONNECT_TIMEOUT;
-     default_host.ka_interval = 30;
-     default_host.ka_maxfail  = 4;
-     default_host.loc_fd = default_host.rmt_fd = -1;
+    init_config();
 
      /* Start logging to syslog and stderr */
      openlog("vtunemd", LOG_PID | LOG_NDELAY | LOG_PERROR, LOG_DAEMON);
