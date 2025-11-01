@@ -210,6 +210,7 @@ struct vtun_opts {
    int  timeout;
    int  persist;
    int  experimental;
+   int  setuid;
 
    char *cfg_file;
    char *pid_file;

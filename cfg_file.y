@@ -88,7 +88,8 @@ static int cfg_error_logger = CFG_ERROR_SYSLOG;
 %token K_PASSWD K_PROG K_PPP K_SPEED K_IFCFG K_FWALL K_ROUTE K_DEVICE 
 %token K_MULTI K_SRCADDR K_IFACE K_ADDR
 %token K_TYPE K_PROT K_NAT_HACK K_COMPRESS K_ENCRYPT K_KALIVE K_STAT
-%token K_UP K_DOWN K_SYSLOG K_IPROUTE K_EXPERIMENTAL
+%token K_UP K_DOWN K_SYSLOG K_IPROUTE K_EXPERIMENTAL K_HARDENING
+%token K_SETUID
 
 %token <str> K_HOST K_ERROR
 %token <str> WORD PATH STRING
@@ -207,6 +208,9 @@ option:  '\n'
   | K_EXPERIMENTAL NUM {
                     vtun.experimental = $2;
                 }
+  | K_HARDENING hardening_opts		{
+    printf("Hardening\n");
+  }
 
   | K_ERROR		{
 			  cfg_error("Unknown option '%s'",$1);
@@ -252,6 +256,21 @@ syslog_opt:
    			  cfg_error("Unknown syslog option '%s'",$1);
   			  YYABORT;
 			}
+  ;
+
+hardening_opts:
+  WORD		{
+    if (!strcmp($1, "setuid")) {
+        vtun.setuid = 1;
+    } else {
+        cfg_error("Unknown hardening option '%s'", $1);
+        YYABORT;
+    }
+  }
+  | K_ERROR		{
+   			  cfg_error("Unknown hardening option '%s'",$1);
+  			  YYABORT;
+  }
   ;
 
 host_options:
@@ -701,10 +720,10 @@ int after_read_config()
    return !llist_empty(&host_list);
 }
 
-/* 
- * Read config file. 
- */ 
-int read_config(char *file) 
+/*
+ * Read config file.
+ */
+int read_config(char *file)
 {
    extern FILE *yyin;
 

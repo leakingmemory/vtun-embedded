@@ -77,6 +77,28 @@ START_TEST(test_cfg_aes256gcm) {
     free_config();
 } END_TEST;
 
+START_TEST(test_not_setuid) {
+    const char *test_config = "options {\n"
+    " port 5001;\n"
+    "}";
+    init_config();
+    read_config_from_string(test_config);
+    ck_assert_int_eq(0, vtun.setuid);
+    free_config();
+} END_TEST;
+
+START_TEST(test_setuid) {
+    const char *test_config = "options {\n"
+    " port 5001;\n"
+    " hardening setuid;\n"
+    "}";
+    init_config();
+    read_config_from_string(test_config);
+    ck_assert_int_ne(0, vtun.setuid);
+    free_config();
+    printf("hardening setuid ok\n");
+}
+
 Suite *config_suite(void)
 {
     Suite *s;
@@ -87,6 +109,8 @@ Suite *config_suite(void)
 
     tcase_add_test(tc_core, test_cfg_aes128gcm);
     tcase_add_test(tc_core, test_cfg_aes256gcm);
+    tcase_add_test(tc_core, test_not_setuid);
+    tcase_add_test(tc_core, test_setuid);
 
     suite_add_tcase(s, tc_core);
 
