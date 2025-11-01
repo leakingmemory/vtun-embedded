@@ -138,8 +138,10 @@
 #undef STDC_HEADERS
 
 /* Vtun version */
-#undef VTUN_VER
 #undef VTUN_EXPERIMENTAL_VER
+
+/* Vtun version */
+#undef VTUN_VER
 
 /* Define to 1 if 'lex' declares 'yytext' as a 'char *' by default, not a
    'char[]'. */
