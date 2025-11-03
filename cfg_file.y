@@ -208,9 +208,8 @@ option:  '\n'
   | K_EXPERIMENTAL NUM {
                     vtun.experimental = $2;
                 }
-  | K_HARDENING hardening_opts		{
-    printf("Hardening\n");
-  }
+
+  | K_HARDENING hardening_opts
 
   | K_ERROR		{
 			  cfg_error("Unknown option '%s'",$1);
@@ -261,6 +260,7 @@ syslog_opt:
 hardening_opts:
   WORD		{
     if (!strcmp($1, "setuid")) {
+        vtun_syslog(LOG_WARNING, "Hardening feature setuid is experimental.");
         vtun.setuid = 1;
     } else {
         cfg_error("Unknown hardening option '%s'", $1);

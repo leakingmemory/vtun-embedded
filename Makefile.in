@@ -53,7 +53,8 @@ OBJS = main.o vtun.o cfg_file.tab.o cfg_file.lex.o server.o client.o lib.o \
        tun_dev.o tap_dev.o pty_dev.o pipe_dev.o \
        tcp_proto.o udp_proto.o \
        linkfd.o lfd_shaper.o lfd_zlib.o lfd_lzo.o lfd_encrypt.o lfd_legacy_encrypt.o \
-       lfd_gcm_encrypt.o md5.o blowfish.o auth_prim.o auth1.o auth2.o
+       lfd_gcm_encrypt.o md5.o blowfish.o auth_prim.o auth1.o auth2.o \
+       dropcaps.o
 
 CONFIGURE_FILES = Makefile config.status config.cache config.h config.log 
 
@@ -121,8 +122,12 @@ TEST_BIN = run_tests
 test: $(TEST_BIN)
 	./$(TEST_BIN)
 
-$(TEST_BIN): $(TEST_OBJS) $(filter-out main.o, $(OBJS))
-	$(CC) -o $@ $(filter-out main.o, $(OBJS)) $(LFD_OBJS) $(TEST_OBJS) $(TEST_LDFLAGS)
+# Build test-specific auth object with UNIT_TEST to expose wrappers
+auth_ut.o: auth.c vtun.h lib.h
+	$(CC) $(CFLAGS) $(DEFS) -DUNIT_TEST -o $@ -c $<
+
+$(TEST_BIN): $(TEST_OBJS) $(filter-out main.o auth.o, $(OBJS)) auth_ut.o
+	$(CC) -o $@ $(filter-out main.o auth.o, $(OBJS)) auth_ut.o $(LFD_OBJS) $(TEST_OBJS) $(TEST_LDFLAGS)
 
 # Clean test artifacts
 clean-test:

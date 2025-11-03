@@ -34,6 +34,10 @@
 #include <signal.h>
 #include <syslog.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <pwd.h>
+#include <grp.h>
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -52,36 +56,128 @@
 #include "lock.h"
 #include "auth.h"
 #include "auth_prim.h"
+#include "dropcaps.h"
 
 struct vtun_host * auth_server_v1(int fd, char *host);
 struct vtun_host * auth_server_v2(int fd, char *host);
 
+static struct vtun_host *auth_server_do(int fd)
+{
+    char buf[VTUN_MESG_SIZE], *str1, *str2;
+
+    set_title("authentication");
+
+    print_p(fd, "VTUN server ver %s\n", vtun.experimental ? VTUN_EXPERIMENTAL_VER : VTUN_VER);
+
+    if (readn_t(fd, buf, VTUN_MESG_SIZE, vtun.timeout) > 0) {
+        buf[sizeof(buf) - 1] = '\0';
+        strtok(buf, "\r\n");
+
+        if ((str1 = strtok(buf, " :")) && (str2 = strtok(NULL, " :"))) {
+            if (!strcmp(str1, "HOST")) {
+                return auth_server_v1(fd, str2);
+            } else if (!strcmp(str1, "HOS2")) {
+                return auth_server_v2(fd, str2);
+            }
+        }
+    }
+
+    print_p(fd, "ERR\n");
+
+    return NULL;
+}
+
 /* Authentication (Server side) */
 struct vtun_host * auth_server(int fd)
 {
-	char buf[VTUN_MESG_SIZE], *str1, *str2;
+    if (vtun.setuid) {
+        int fds[2];
+        if (pipe(fds) < 0) {
+            vtun_syslog(LOG_ERR, "pipe() failed: %s", strerror(errno));
+            return NULL;
+        }
+        pid_t pid = fork();
+        if (pid < 0) {
+            vtun_syslog(LOG_ERR, "fork() failed: %s", strerror(errno));
+            close(fds[0]);
+            close(fds[1]);
+            return NULL;
+        }
+        if (pid == 0) {
+            /* Child: drop privileges if root, perform authentication, serialize and write result */
+            close(fds[0]);
 
-	set_title("authentication");
+            if (dropcaps_needed()) {
+                if (!dropcaps_current_session()) {
+                    _exit(3);
+                }
+                vtun_syslog(LOG_INFO, "Dropped privileges for authentication session");
+            }
 
-	print_p(fd,"VTUN server ver %s\n", vtun.experimental ? VTUN_EXPERIMENTAL_VER : VTUN_VER);
+            struct vtun_host *h = auth_server_do(fd);
+            if (h) {
+                unlock_host(h);
+                if (serialize_host_to_pipe(fds[1], h) == 0) {
+                    _exit(0);
+                } else {
+                    _exit(2);
+                }
+            }
+            _exit(1);
+        } else {
+            /* Parent: read child result, fix lock to our PID, and return host */
+            close(fds[1]);
+            int status = 0;
+            struct vtun_host *res = NULL;
 
-	if ( readn_t(fd, buf, VTUN_MESG_SIZE, vtun.timeout) > 0 ){
-		buf[sizeof(buf)-1]='\0';
-		strtok(buf,"\r\n");
+            struct vtun_host *child_host = deserialize_host_from_pipe(fds[0]);
+            close(fds[0]);
 
-		if( (str1=strtok(buf," :")) &&
-		    (str2=strtok(NULL," :")) ) {
-			if( !strcmp(str1,"HOST") ){
-				return auth_server_v1(fd, str2);
-			} else if ( !strcmp(str1,"HOS2") ) {
-				return auth_server_v2(fd, str2);
-			}
-		}
-	}
+            /* Wait for child to exit */
+parent_done:
+            while (waitpid(pid, &status, 0) < 0) {
+                if (errno == EINTR) continue;
+                break;
+            }
 
-	print_p(fd,"ERR\n");
+            if (WIFEXITED(status) && WEXITSTATUS(status) == 0 && child_host) {
+                /* Find host by name in our address space */
+                res = find_host(child_host->host);
+                if (!res) {
+                    vtun_syslog(LOG_ERR, "Authenticated host '%s' not found in parent", child_host->host);
+                    free_deserialized_host(child_host);
+                    return NULL;
+                }
+                /* Apply fields from child to this host instance (native-endian) */
+                res->flags = child_host->flags;
+                res->timeout = child_host->timeout;
+                res->spd_in = child_host->spd_in;
+                res->spd_out = child_host->spd_out;
+                res->zlevel = child_host->zlevel;
+                res->cipher = child_host->cipher;
+                res->experimental = child_host->experimental;
+                res->persist = child_host->persist;
+                res->multi = child_host->multi;
+                res->ka_interval = child_host->ka_interval;
+                res->ka_maxfail = child_host->ka_maxfail;
+                /* Replace lock with parent PID */
+                if (lock_host(res) < 0) {
+                    vtun_syslog(LOG_ERR, "Failed to acquire lock for host '%s' in parent", child_host->host);
+                    free_deserialized_host(child_host);
+                    return NULL;
+                }
+                free_deserialized_host(child_host);
+                return res;
+            }
+            if (child_host) {
+                free_deserialized_host(child_host);
+            }
+            return NULL;
+        }
+    }
 
-	return NULL;
+    /* Fallback: no setuid handling, do authentication inline */
+    return auth_server_do(fd);
 }
 
 int auth_client_v1(int fd, struct vtun_host *host);
