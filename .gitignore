@@ -17,4 +17,9 @@ udp_proto.c
 autom4te.cache/
 config*~
 install-sh~
+repo/
+*.flatpak
+*.snap
+run_tests
+vtunemd
 
