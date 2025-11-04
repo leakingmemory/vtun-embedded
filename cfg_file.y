@@ -26,6 +26,8 @@
 #include <stdarg.h>
 
 #include <syslog.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include "compat.h"
 #include "vtun.h"
@@ -90,6 +92,7 @@ static int cfg_error_logger = CFG_ERROR_SYSLOG;
 %token K_TYPE K_PROT K_NAT_HACK K_COMPRESS K_ENCRYPT K_KALIVE K_STAT
 %token K_UP K_DOWN K_SYSLOG K_IPROUTE K_EXPERIMENTAL K_HARDENING
 %token K_SETUID
+%token K_SETGID
 
 %token <str> K_HOST K_ERROR
 %token <str> WORD PATH STRING
@@ -210,6 +213,34 @@ option:  '\n'
                 }
 
   | K_HARDENING hardening_opts
+
+  | K_SETUID NUM {
+                    vtun.setuid_uid = (uid_t)$2;
+                    vtun.setuid = 1;
+                }
+  | K_SETUID WORD {
+                    struct passwd *pw = getpwnam($2);
+                    if (!pw) {
+                        cfg_error("Unknown user '%s' for setuid", $2);
+                        YYABORT;
+                    }
+                    vtun.setuid_uid = pw->pw_uid;
+                    vtun.setuid = 1;
+                }
+
+  | K_SETGID NUM {
+                    vtun.setgid_gid = (gid_t)$2;
+                    vtun.setgid = 1;
+                }
+  | K_SETGID WORD {
+                    struct group *gr = getgrnam($2);
+                    if (!gr) {
+                        cfg_error("Unknown group '%s' for setgid", $2);
+                        YYABORT;
+                    }
+                    vtun.setgid_gid = gr->gr_gid;
+                    vtun.setgid = 1;
+                }
 
   | K_ERROR		{
 			  cfg_error("Unknown option '%s'",$1);

@@ -7,6 +7,8 @@
 
 #include <check.h>
 #include <stdlib.h>
+#include <grp.h>
+#include <pwd.h>
 
 void init_config();
 void before_read_config();
@@ -131,6 +133,99 @@ START_TEST(test_setuid_and_setgid) {
     printf("hardening setuid ok\n");
 }
 
+START_TEST(test_numeric_uid_gid)
+{
+    init_config();
+    const char *cfg =
+        "options {\n"
+        " hardening setuid setgid;\n"
+        " setuid 65534;\n"
+        " setgid 65534;\n"
+        "}\n"
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+    ck_assert_int_ne(0, vtun.setuid);
+    ck_assert_int_ne(0, vtun.setgid);
+    ck_assert_int_eq((uid_t)65534, vtun.setuid_uid);
+    ck_assert_int_eq((gid_t)65534, vtun.setgid_gid);
+
+    free_config();
+
+	printf("Numeric setuid/setgid ok\n");
+}
+END_TEST
+
+START_TEST(test_name_nobody)
+{
+    init_config();
+    struct passwd *pw = getpwnam("nobody");
+    struct group *gr = getgrnam("nobody");
+    if (!pw || !gr) {
+        printf("Skipping: nobody user or group not present on system.\n");
+        free_config();
+        return;
+    }
+    const char *cfg =
+        "options {\n"
+        " hardening setuid setgid;\n"
+        " setuid nobody;\n"
+        " setgid nobody;\n"
+        "}\n";
+    int ok = read_config_from_string(cfg);
+	ck_assert_int_eq(0, ok);
+
+    ck_assert_int_eq(pw->pw_uid, vtun.setuid_uid);
+    ck_assert_int_eq(gr->gr_gid, vtun.setgid_gid);
+
+    free_config();
+
+	printf("Setuid/setgid by name ok\n");
+}
+END_TEST
+
+START_TEST(test_unknown_user_group_fails)
+{
+    init_config();
+    const char *cfg =
+        "options {\n"
+        " hardening setuid setgid;\n"
+        " setuid definitelynotarealuserxyz;\n"
+        "}\n";
+    int ok = read_config_from_string(cfg);
+    ck_assert_int_eq(0, ok);
+    free_config();
+
+	printf("Setuid with unknown user is ok\n");
+}
+END_TEST
+
+START_TEST(test_fallback_nobody_when_ids_unset)
+{
+    init_config();
+    const char *cfg =
+        "options {\n"
+        " hardening setuid setgid;\n"
+        "}\n"
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    /* IDs remain unset (-1) */
+    ck_assert_int_eq((uid_t)-1, vtun.setuid_uid);
+    ck_assert_int_eq((gid_t)-1, vtun.setgid_gid);
+
+    free_config();
+}
+END_TEST
+
+
 Suite *config_suite(void)
 {
     Suite *s;
@@ -145,6 +240,10 @@ Suite *config_suite(void)
     tcase_add_test(tc_core, test_setuid);
     tcase_add_test(tc_core, test_setgid);
     tcase_add_test(tc_core, test_setuid_and_setgid);
+    tcase_add_test(tc_core, test_numeric_uid_gid);
+    tcase_add_test(tc_core, test_name_nobody);
+    tcase_add_test(tc_core, test_unknown_user_group_fails);
+    tcase_add_test(tc_core, test_fallback_nobody_when_ids_unset);
 
     suite_add_tcase(s, tc_core);
 

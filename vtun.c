@@ -82,6 +82,9 @@ void init_config() {
      vtun.svr_type = -1;
      vtun.syslog   = LOG_DAEMON;
 
+     vtun.setuid_uid = (uid_t)-1;
+     vtun.setgid_gid = (gid_t)-1;
+
      /* Initialize default host options */
      memset(&default_host, 0, sizeof(default_host));
      default_host.flags   = VTUN_TTY | VTUN_TCP;

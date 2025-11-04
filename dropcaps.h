@@ -19,10 +19,16 @@
 #ifndef VTUN_EMBEDDED_DROPCAPS_H
 #define VTUN_EMBEDDED_DROPCAPS_H
 
+#include <sys/types.h>
+
 int serialize_host_to_pipe(int fd, const struct vtun_host *h);
 struct vtun_host *deserialize_host_from_pipe(int fd);
 void free_deserialized_host(struct vtun_host *h);
 int dropcaps_needed();
 int dropcaps_current_session();
+
+#ifdef UNIT_TEST
+int resolve_dropcaps_targets(uid_t *uid_out, gid_t *gid_out);
+#endif
 
 #endif //VTUN_EMBEDDED_DROPCAPS_H

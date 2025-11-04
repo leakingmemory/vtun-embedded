@@ -27,6 +27,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <syslog.h>
+#include <errno.h>
 
 
 /* Helpers for pipe I/O (native-endian, same-arch child/parent) */
@@ -163,40 +164,81 @@ int dropcaps_needed() {
     return needed;
 }
 
-int dropcaps_current_session()
+#ifdef UNIT_TEST_SSSDSD
+int resolve_dropcaps_targets(uid_t *uid_out, gid_t *gid_out)
 {
+    uid_t uid = (uid_t)-1;
+    gid_t gid = (gid_t)-1;
     if (vtun.setgid) {
-        struct group *gr = getgrnam("nobody");
-        if (gr) {
-            vtun_syslog(LOG_INFO, "Setting gid of pid %d to %d\n", getpid(), gr->gr_gid);
-            setgroups(0, NULL);
-            if (setgid(gr->gr_gid) != 0) {
-                vtun_syslog(LOG_ERR, "setgid failed: %s", strerror(errno));
-                return 0;
-            }
-            if (setegid(gr->gr_gid) != 0) {
-                vtun_syslog(LOG_ERR, "setegid failed: %s", strerror(errno));
-                return 0;
-            }
+        if (vtun.setgid_gid != (gid_t)-1) {
+            gid = vtun.setgid_gid;
         } else {
-            vtun_syslog(LOG_ERR, "group 'nobody' not found; unable to set group id");
-            return 0;
+            struct group *gr = getgrnam("nobody");
+            if (gr) gid = gr->gr_gid; else return 0;
         }
     }
     if (vtun.setuid) {
-        struct passwd *pw = getpwnam("nobody");
-        if (pw) {
-            vtun_syslog(LOG_INFO, "Setting uid of pid %d to %d\n", getpid(), pw->pw_uid);
-            if (setuid(pw->pw_uid) != 0) {
-                vtun_syslog(LOG_ERR, "setuid failed: %s", strerror(errno));
-                return 0;
-            }
-            if (seteuid(pw->pw_uid) != 0) {
-                vtun_syslog(LOG_ERR, "setuid failed: %s", strerror(errno));
-                return 0;
-            }
+        if (vtun.setuid_uid != (uid_t)-1) {
+            uid = vtun.setuid_uid;
         } else {
-            vtun_syslog(LOG_ERR, "user 'nobody' not found; unable to set user id");
+            struct passwd *pw = getpwnam("nobody");
+            if (pw) uid = pw->pw_uid; else return 0;
+        }
+    }
+    if (uid_out) *uid_out = uid;
+    if (gid_out) *gid_out = gid;
+    return 1;
+}
+#endif
+
+int dropcaps_current_session()
+{
+    gid_t target_gid = (gid_t)-1;
+    uid_t target_uid = (uid_t)-1;
+
+    if (vtun.setgid) {
+        if (vtun.setgid_gid != (gid_t)-1) {
+            target_gid = vtun.setgid_gid;
+        } else {
+            struct group *gr = getgrnam("nobody");
+            if (!gr) {
+                vtun_syslog(LOG_ERR, "group 'nobody' not found; unable to set group id");
+                return 0;
+            }
+            target_gid = gr->gr_gid;
+        }
+
+        vtun_syslog(LOG_INFO, "Setting gid of pid %d to %d", getpid(), (int)target_gid);
+        setgroups(0, NULL);
+        if (setgid(target_gid) != 0) {
+            vtun_syslog(LOG_ERR, "setgid failed: %s", strerror(errno));
+            return 0;
+        }
+        if (setegid(target_gid) != 0) {
+            vtun_syslog(LOG_ERR, "setegid failed: %s", strerror(errno));
+            return 0;
+        }
+    }
+
+    if (vtun.setuid) {
+        if (vtun.setuid_uid != (uid_t)-1) {
+            target_uid = vtun.setuid_uid;
+        } else {
+            struct passwd *pw = getpwnam("nobody");
+            if (!pw) {
+                vtun_syslog(LOG_ERR, "user 'nobody' not found; unable to set user id");
+                return 0;
+            }
+            target_uid = pw->pw_uid;
+        }
+
+        vtun_syslog(LOG_INFO, "Setting uid of pid %d to %d", getpid(), (int)target_uid);
+        if (setuid(target_uid) != 0) {
+            vtun_syslog(LOG_ERR, "setuid failed: %s", strerror(errno));
+            return 0;
+        }
+        if (seteuid(target_uid) != 0) {
+            vtun_syslog(LOG_ERR, "setuid failed: %s", strerror(errno));
             return 0;
         }
     }

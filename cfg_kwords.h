@@ -64,6 +64,7 @@ struct kword cfg_keyword[] = {
    { "experimental", K_EXPERIMENTAL },
    { "hardening", K_HARDENING },
    { "setuid", K_SETUID },
+   { "setgid", K_SETGID },
    { NULL , 0 }
 };
 

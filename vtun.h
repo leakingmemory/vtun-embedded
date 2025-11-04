@@ -23,6 +23,7 @@
 #ifndef _VTUN_H
 #define _VTUN_H
 
+#include <sys/types.h>
 #include "llist.h"
 
 /* Default VTUN port */
@@ -212,6 +213,9 @@ struct vtun_opts {
    int  experimental;
    int  setuid;
    int  setgid;
+
+   uid_t setuid_uid; /* target UID when setuid hardening is enabled; -1 = unset */
+   gid_t setgid_gid; /* target GID when setgid hardening is enabled; -1 = unset */
 
    char *cfg_file;
    char *pid_file;
