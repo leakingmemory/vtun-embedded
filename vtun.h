@@ -211,6 +211,7 @@ struct vtun_opts {
    int  persist;
    int  experimental;
    int  setuid;
+   int  setgid;
 
    char *cfg_file;
    char *pid_file;

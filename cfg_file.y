@@ -257,16 +257,23 @@ syslog_opt:
 			}
   ;
 
-hardening_opts:
+hardening_opt:
   WORD		{
     if (!strcmp($1, "setuid")) {
         vtun_syslog(LOG_WARNING, "Hardening feature setuid is experimental.");
         vtun.setuid = 1;
+    } else if (!strcmp($1, "setgid")) {
+        vtun_syslog(LOG_WARNING, "Hardening feature setgid is experimental.");
+        vtun.setgid = 1;
     } else {
         cfg_error("Unknown hardening option '%s'", $1);
         YYABORT;
     }
   }
+
+hardening_opts:
+  hardening_opt
+  | hardening_opts hardening_opt
   | K_ERROR		{
    			  cfg_error("Unknown hardening option '%s'",$1);
   			  YYABORT;

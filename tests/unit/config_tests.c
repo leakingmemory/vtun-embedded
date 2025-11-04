@@ -83,7 +83,9 @@ START_TEST(test_not_setuid) {
     "}";
     init_config();
     read_config_from_string(test_config);
+    ck_assert_int_eq(5001, vtun.bind_addr.port);
     ck_assert_int_eq(0, vtun.setuid);
+    ck_assert_int_eq(0, vtun.setgid);
     free_config();
 } END_TEST;
 
@@ -94,7 +96,37 @@ START_TEST(test_setuid) {
     "}";
     init_config();
     read_config_from_string(test_config);
+    ck_assert_int_eq(5001, vtun.bind_addr.port);
     ck_assert_int_ne(0, vtun.setuid);
+    ck_assert_int_eq(0, vtun.setgid);
+    free_config();
+    printf("hardening setuid ok\n");
+}
+
+START_TEST(test_setgid) {
+    const char *test_config = "options {\n"
+    " port 5001;\n"
+    " hardening setgid;\n"
+    "}";
+    init_config();
+    read_config_from_string(test_config);
+    ck_assert_int_eq(5001, vtun.bind_addr.port);
+    ck_assert_int_eq(0, vtun.setuid);
+    ck_assert_int_ne(0, vtun.setgid);
+    free_config();
+    printf("hardening setgid ok\n");
+}
+
+START_TEST(test_setuid_and_setgid) {
+    const char *test_config = "options {\n"
+    " port 5001;\n"
+    " hardening setuid setgid;\n"
+    "}";
+    init_config();
+    read_config_from_string(test_config);
+    ck_assert_int_eq(5001, vtun.bind_addr.port);
+    ck_assert_int_ne(0, vtun.setuid);
+    ck_assert_int_ne(0, vtun.setgid);
     free_config();
     printf("hardening setuid ok\n");
 }
@@ -111,6 +143,8 @@ Suite *config_suite(void)
     tcase_add_test(tc_core, test_cfg_aes256gcm);
     tcase_add_test(tc_core, test_not_setuid);
     tcase_add_test(tc_core, test_setuid);
+    tcase_add_test(tc_core, test_setgid);
+    tcase_add_test(tc_core, test_setuid_and_setgid);
 
     suite_add_tcase(s, tc_core);
 
