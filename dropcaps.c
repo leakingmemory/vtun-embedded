@@ -164,33 +164,6 @@ int dropcaps_needed() {
     return needed;
 }
 
-#ifdef UNIT_TEST_SSSDSD
-int resolve_dropcaps_targets(uid_t *uid_out, gid_t *gid_out)
-{
-    uid_t uid = (uid_t)-1;
-    gid_t gid = (gid_t)-1;
-    if (vtun.setgid) {
-        if (vtun.setgid_gid != (gid_t)-1) {
-            gid = vtun.setgid_gid;
-        } else {
-            struct group *gr = getgrnam("nobody");
-            if (gr) gid = gr->gr_gid; else return 0;
-        }
-    }
-    if (vtun.setuid) {
-        if (vtun.setuid_uid != (uid_t)-1) {
-            uid = vtun.setuid_uid;
-        } else {
-            struct passwd *pw = getpwnam("nobody");
-            if (pw) uid = pw->pw_uid; else return 0;
-        }
-    }
-    if (uid_out) *uid_out = uid;
-    if (gid_out) *gid_out = gid;
-    return 1;
-}
-#endif
-
 int dropcaps_current_session()
 {
     gid_t target_gid = (gid_t)-1;
