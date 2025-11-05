@@ -29,6 +29,7 @@
 #include <sys/time.h>
 #include <syslog.h>
 #include <time.h>
+#include <sys/wait.h>
 
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
@@ -47,6 +48,7 @@
 #include "lib.h"
 #include "driver.h"
 #include "linkfd_buffers.h"
+#include "dropcaps.h"
 
 /* used by lfd_encrypt */
 int send_a_packet = 0;
@@ -371,9 +373,41 @@ int lfd_linker(void)
 int linkfd(struct vtun_host *host)
 {
      struct sigaction sa, sa_oldterm, sa_oldint, sa_oldhup;
+	 int lfd_dropcaps_child = 0;
      int old_prio;
 
      lfd_host = host;
+ 
+     /* If configured to drop privileges, fork a worker process that will
+      * drop to the target uid/gid and run the tunneling loop. The parent
+      * (still root) will later run down-commands after linkfd() returns. */
+     if ((vtun.setuid || vtun.setgid) && dropcaps_needed()) {
+         int status = 0;
+         pid_t pid = fork();
+         if (pid < 0) {
+             vtun_syslog(LOG_ERR, "fork() failed in linkfd: %s", strerror(errno));
+             return 0;
+         }
+         if (pid == 0) {
+             /* Child: drop privileges for the tunneling session */
+             if (!dropcaps_current_session()) {
+                 _exit(3);
+             }
+             lfd_dropcaps_child = 1;
+             vtun_syslog(LOG_INFO, "Dropped privileges for tunneling session");
+             /* proceed with normal linker initialization below */
+         } else {
+             /* Parent: wait for child to exit and propagate its status */
+             while (waitpid(pid, &status, 0) < 0) {
+                 if (errno == EINTR) continue;
+                 break;
+             }
+             if (WIFEXITED(status)) {
+                 return WEXITSTATUS(status);
+             }
+             return 0;
+         }
+     }
  
      old_prio=getpriority(PRIO_PROCESS,0);
      setpriority(PRIO_PROCESS,0,LINKFD_PRIO);
@@ -455,5 +489,8 @@ int linkfd(struct vtun_host *host)
 
      setpriority(PRIO_PROCESS,0,old_prio);
 
+     if (lfd_dropcaps_child) {
+         _exit(linker_term);
+     }
      return linker_term;
-}
+ }
