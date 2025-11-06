@@ -54,7 +54,7 @@ OBJS = main.o vtun.o cfg_file.tab.o cfg_file.lex.o server.o client.o lib.o \
        tcp_proto.o udp_proto.o \
        linkfd.o lfd_shaper.o lfd_zlib.o lfd_lzo.o lfd_encrypt.o lfd_legacy_encrypt.o \
        lfd_gcm_encrypt.o md5.o blowfish.o auth_prim.o auth1.o auth2.o \
-       dropcaps.o
+       dropcaps.o sys_dropcaps.o
 
 CONFIGURE_FILES = Makefile config.status config.cache config.h config.log 
 

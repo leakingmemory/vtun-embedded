@@ -28,6 +28,7 @@
 #include <grp.h>
 #include <syslog.h>
 #include <errno.h>
+#include "sys_dropcaps.h"
 
 
 /* Helpers for pipe I/O (native-endian, same-arch child/parent) */
@@ -169,6 +170,10 @@ int dropcaps_current_session()
     gid_t target_gid = (gid_t)-1;
     uid_t target_uid = (uid_t)-1;
 
+    if (vtun.dropcaps && proc_dropcaps(1, vtun.setuid || vtun.setgid) != 0) {
+        vtun_syslog(LOG_ERR, "Failed to drop capabilities");
+        return 0;
+    }
     if (vtun.setgid) {
         if (vtun.setgid_gid != (gid_t)-1) {
             target_gid = vtun.setgid_gid;
@@ -212,6 +217,13 @@ int dropcaps_current_session()
         }
         if (seteuid(target_uid) != 0) {
             vtun_syslog(LOG_ERR, "setuid failed: %s", strerror(errno));
+            return 0;
+        }
+    }
+
+    if ((vtun.setuid || vtun.setgid) && vtun.dropcaps) {
+        if (proc_dropcaps(0, 0) != 0) {
+            vtun_syslog(LOG_ERR, "Failed to drop capabilities");
             return 0;
         }
     }

@@ -213,6 +213,7 @@ struct vtun_opts {
    int  experimental;
    int  setuid;
    int  setgid;
+   int  dropcaps;
 
    uid_t setuid_uid; /* target UID when setuid hardening is enabled; -1 = unset */
    gid_t setgid_gid; /* target GID when setgid hardening is enabled; -1 = unset */

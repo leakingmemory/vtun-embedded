@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include "../../vtun.h"
+#include "../../sys_dropcaps.h"
 
 #include <check.h>
 #include <stdlib.h>
@@ -119,6 +120,40 @@ START_TEST(test_setgid) {
     printf("hardening setgid ok\n");
 }
 
+START_TEST(test_dropcaps) {
+    const char *test_config = "options {\n"
+    " port 5001;\n"
+    " hardening dropcaps;\n"
+    "}";
+    init_config();
+    read_config_from_string(test_config);
+    if (dropcaps_supported()) {
+        ck_assert_int_eq(5001, vtun.bind_addr.port);
+        ck_assert_int_eq(0, vtun.setuid);
+        ck_assert_int_eq(0, vtun.setgid);
+        ck_assert_int_ne(0, vtun.dropcaps);
+        free_config();
+        printf("hardening dropcaps ok\n");
+    }
+} END_TEST;
+
+START_TEST(test_setuid_setgid_and_dropcaps) {
+    const char *test_config = "options {\n"
+    " port 5001;\n"
+    " hardening setuid setgid dropcaps;\n"
+    "}";
+    init_config();
+    read_config_from_string(test_config);
+    if (dropcaps_supported()) {
+        ck_assert_int_eq(5001, vtun.bind_addr.port);
+        ck_assert_int_ne(0, vtun.setuid);
+        ck_assert_int_ne(0, vtun.setgid);
+        ck_assert_int_ne(0, vtun.dropcaps);
+        free_config();
+        printf("hardening setuid, setgid and dropcaps ok\n");
+    }
+} END_TEST;
+
 START_TEST(test_setuid_and_setgid) {
     const char *test_config = "options {\n"
     " port 5001;\n"
@@ -129,9 +164,10 @@ START_TEST(test_setuid_and_setgid) {
     ck_assert_int_eq(5001, vtun.bind_addr.port);
     ck_assert_int_ne(0, vtun.setuid);
     ck_assert_int_ne(0, vtun.setgid);
+    ck_assert_int_eq(0, vtun.dropcaps);
     free_config();
     printf("hardening setuid ok\n");
-}
+} END_TEST;
 
 START_TEST(test_numeric_uid_gid)
 {
@@ -150,6 +186,7 @@ START_TEST(test_numeric_uid_gid)
     ck_assert_int_ne(0, read_config_from_string(cfg));
     ck_assert_int_ne(0, vtun.setuid);
     ck_assert_int_ne(0, vtun.setgid);
+    ck_assert_int_eq(0, vtun.dropcaps);
     ck_assert_int_eq((uid_t)65534, vtun.setuid_uid);
     ck_assert_int_eq((gid_t)65534, vtun.setgid_gid);
 
@@ -177,6 +214,9 @@ START_TEST(test_name_nobody)
         "}\n";
     int ok = read_config_from_string(cfg);
 	ck_assert_int_eq(0, ok);
+    ck_assert_int_ne(0, vtun.setuid);
+    ck_assert_int_ne(0, vtun.setgid);
+    ck_assert_int_eq(0, vtun.dropcaps);
 
     ck_assert_int_eq(pw->pw_uid, vtun.setuid_uid);
     ck_assert_int_eq(gr->gr_gid, vtun.setgid_gid);
@@ -239,6 +279,8 @@ Suite *config_suite(void)
     tcase_add_test(tc_core, test_not_setuid);
     tcase_add_test(tc_core, test_setuid);
     tcase_add_test(tc_core, test_setgid);
+    tcase_add_test(tc_core, test_dropcaps);
+    tcase_add_test(tc_core, test_setuid_setgid_and_dropcaps);
     tcase_add_test(tc_core, test_setuid_and_setgid);
     tcase_add_test(tc_core, test_numeric_uid_gid);
     tcase_add_test(tc_core, test_name_nobody);

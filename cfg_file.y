@@ -32,6 +32,7 @@
 #include "compat.h"
 #include "vtun.h"
 #include "lib.h"
+#include "sys_dropcaps.h"
 
 int lineno = 1;
 
@@ -296,6 +297,13 @@ hardening_opt:
     } else if (!strcmp($1, "setgid")) {
         vtun_syslog(LOG_WARNING, "Hardening feature setgid is experimental.");
         vtun.setgid = 1;
+    } else if (!strcmp($1, "dropcaps")) {
+        vtun_syslog(LOG_WARNING, "Hardening feature dropcaps is experimental.");
+        if (!dropcaps_supported()) {
+            cfg_error("Dropcaps is not supported on this platform.");
+            YYABORT;
+        }
+        vtun.dropcaps = 1;
     } else {
         cfg_error("Unknown hardening option '%s'", $1);
         YYABORT;
