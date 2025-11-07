@@ -103,6 +103,7 @@ static int alloc_gcm_encrypt(struct vtun_host *host) {
     request_reinit = 0;
     vtun_syslog(LOG_WARNING, "AES-GCM is experimental, compatibility is not guaranteed");
     vtun_syslog(LOG_INFO, "AES-GCM is ready to start");
+    return 0;
 }
 
 static int free_gcm_encrypt() {
@@ -112,6 +113,7 @@ static int free_gcm_encrypt() {
     EVP_CIPHER_CTX_free(ctx_enc_sideband);
     EVP_CIPHER_CTX_free(ctx_dec);
     EVP_CIPHER_CTX_free(ctx_enc);
+    return 0;
 }
 
 static int gcm_set_up_encryption(LfdBuffer *buf);
@@ -147,7 +149,7 @@ static int gcm_encrypt(LfdBuffer *buf) {
     uint8_t noncebuf[SHA256_DIGEST_LENGTH];
     uint8_t *nonce = SHA256(ivdata, 32, noncebuf);
     if (!encryption_keyschedule_done) {
-        EVP_EncryptInit_ex(ctx_enc, cipher, NULL, pkey, NULL);
+        EVP_EncryptInit_ex(ctx_enc, cipher, NULL, (unsigned char *) pkey, NULL);
         encryption_keyschedule_done = 1;
     }
     EVP_EncryptInit_ex(ctx_enc, NULL, NULL, NULL, nonce);
@@ -215,7 +217,7 @@ static int gcm_decrypt(LfdBuffer *buf) {
     uint8_t noncebuf[SHA256_DIGEST_LENGTH];
     uint8_t *nonce = SHA256(ivdata, 32, noncebuf);
     if (!decryption_keyschedule_done) {
-        EVP_DecryptInit_ex(ctx_dec, cipher, NULL, pkey, NULL);
+        EVP_DecryptInit_ex(ctx_dec, cipher, NULL, (unsigned char *) pkey, NULL);
         decryption_keyschedule_done = 1;
     }
     EVP_DecryptInit_ex(ctx_dec, NULL, NULL, NULL, nonce);
@@ -308,7 +310,7 @@ static int gcm_add_inband(LfdSubBuffer *sub) {
         buf[3] = '#';
     }
     ((uint32_t *) buf)[1] = htobe32(enc_seq + enc_seq_base);
-    RAND_bytes(buf + 8, 8);
+    RAND_bytes((unsigned char *) (buf + 8), 8);
     return 1;
 }
 
