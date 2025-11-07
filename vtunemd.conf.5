@@ -292,7 +292,7 @@ Ignored by the client.
 experimental mode. To enable new protocol extensions that are not yet
 ready for general use.
 
-.IP \fBhardening\fR\ \fBsetuid\fR\ \fBsetgid\fR\ (experimental)
+.IP \fBhardening\fR\ \fBdropcaps\fR\ \fBsetuid\fR\ \fBsetgid\fR\ (experimental)
 Enable hardening features such as dropcaps or setuid.
 
 Dropcaps will on supported platforms
@@ -307,7 +307,7 @@ of a potential RCE breach similarly to dropcaps by limiting access.
 Default user and group is nobody, but can be changed by using setuid
 and setgid options (see below).
 
-Setuid and setgid will cause vtunemd to
+Dropcaps and setuid will cause vtunemd to
 fork for both authenticating with remote hosts and tunneling traffic
 to and from remote hosts. This hurts performance and may cause a server
 to be more susceptible to denial of service attacks. While on the
