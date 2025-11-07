@@ -13,6 +13,7 @@ tap_dev.c
 tcp_proto.c
 tun_dev.c
 udp_proto.c
+sys_dropcaps.c
 .idea/
 autom4te.cache/
 config*~
