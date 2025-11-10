@@ -83,6 +83,8 @@ struct vtun_addr {
 #define VTUN_ADDR_IFACE	0x01 
 #define VTUN_ADDR_NAME  0x02
 
+#define VTUN_REQUIRES_CLIENT 1
+
 struct vtun_host {
    char *host;
    char *passwd;
@@ -99,6 +101,7 @@ struct vtun_host {
    int  cipher;
 
    int experimental;
+   int requires_flags;
 
    int  rmt_fd;
    int  loc_fd;
@@ -244,7 +247,8 @@ void server(int sock);
 void client(struct vtun_host *host);
 int  tunnel(struct vtun_host *host);
 int  read_config(char *file);
-struct vtun_host * find_host(char *host);
+struct vtun_host * find_host_server(char *host);
+struct vtun_host * find_host_client(char *host);
 void clear_nat_hack_flags(int svr);
 
 #endif

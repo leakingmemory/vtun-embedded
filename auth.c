@@ -141,7 +141,7 @@ struct vtun_host * auth_server(int fd)
 
             if (WIFEXITED(status) && WEXITSTATUS(status) == 0 && child_host) {
                 /* Find host by name in our address space */
-                res = find_host(child_host->host);
+                res = find_host_server(child_host->host);
                 if (!res) {
                     vtun_syslog(LOG_ERR, "Authenticated host '%s' not found in parent", child_host->host);
                     free_deserialized_host(child_host);

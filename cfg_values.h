@@ -1,0 +1,10 @@
+//
+// Created by sigsegv on 11/10/25.
+//
+
+#ifndef VTUN_EMBEDDED_CFG_VALUES_H
+#define VTUN_EMBEDDED_CFG_VALUES_H
+
+#define VTUN_PARAM_CLIENT 0x3FFF
+
+#endif //VTUN_EMBEDDED_CFG_VALUES_H

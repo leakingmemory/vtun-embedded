@@ -3,6 +3,7 @@
 //
 
 #include <stdio.h>
+#include "../../config.h"
 #include "../../vtun.h"
 #include "../../sys_dropcaps.h"
 
@@ -57,7 +58,7 @@ START_TEST(test_cfg_aes128gcm) {
     "}";
     init_config();
     read_config_from_string(test_config);
-    struct vtun_host *host = find_host("testhost");
+    struct vtun_host *host = find_host_server("testhost");
     ck_assert_ptr_nonnull(host);
     ck_assert_int_eq(VTUN_ENC_AES128GCM, host->cipher);
     printf(" aes128gcm cipher num %d\n", host->cipher);
@@ -73,7 +74,7 @@ START_TEST(test_cfg_aes256gcm) {
     "}";
     init_config();
     read_config_from_string(test_config);
-    struct vtun_host *host = find_host("testhost");
+    struct vtun_host *host = find_host_server("testhost");
     ck_assert_ptr_nonnull(host);
     ck_assert_int_eq(VTUN_ENC_AES256GCM, host->cipher);
     printf(" aes256gcm cipher num %d\n", host->cipher);
@@ -265,6 +266,68 @@ START_TEST(test_fallback_nobody_when_ids_unset)
 }
 END_TEST
 
+#ifdef ENABLE_NAT_HACK
+START_TEST(test_nathack_client)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto udp;\n"
+        " nat_hack client;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_server("dummy");
+    int not_expected_flags = VTUN_TCP;
+    int expected_flags = VTUN_UDP | VTUN_NAT_HACK_CLIENT;
+    ck_assert_int_eq(0, (dummy->flags & not_expected_flags));
+    ck_assert_int_eq(expected_flags, (dummy->flags & expected_flags));
+
+    free_config();
+}
+END_TEST
+#endif
+
+START_TEST(test_requires_none)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_server("dummy");
+    ck_assert_int_eq(0, dummy->requires_flags);
+
+    free_config();
+}
+END_TEST
+
+START_TEST(test_requires_client)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        " experimental yes;\n"
+        " requires client;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_client("dummy");
+    ck_assert_int_eq(VTUN_REQUIRES_CLIENT, dummy->requires_flags);
+
+    free_config();
+}
+END_TEST
+
 
 Suite *config_suite(void)
 {
@@ -286,6 +349,11 @@ Suite *config_suite(void)
     tcase_add_test(tc_core, test_name_nobody);
     tcase_add_test(tc_core, test_unknown_user_group_fails);
     tcase_add_test(tc_core, test_fallback_nobody_when_ids_unset);
+#ifdef ENABLE_NAT_HACK
+    tcase_add_test(tc_core, test_nathack_client);
+#endif
+    tcase_add_test(tc_core, test_requires_none);
+    tcase_add_test(tc_core, test_requires_client);
 
     suite_add_tcase(s, tc_core);
 

@@ -20,6 +20,8 @@
  * $Id: cfg_kwords.h,v 1.6.2.5 2016/10/01 21:27:51 mtbishop Exp $
  */ 
 
+#include "cfg_values.h"
+
 extern int lineno;
 
 struct kword {
@@ -65,6 +67,7 @@ struct kword cfg_keyword[] = {
    { "hardening", K_HARDENING },
    { "setuid", K_SETUID },
    { "setgid", K_SETGID },
+   { "requires", K_REQUIRES },
    { NULL , 0 }
 };
 
@@ -81,7 +84,7 @@ struct kword cfg_param[] = {
    { "tun",	 VTUN_TUN }, 
    { "tcp",      VTUN_TCP }, 
    { "udp",      VTUN_UDP }, 
-   { "client",   VTUN_NAT_HACK_CLIENT },
+   { "client",   VTUN_PARAM_CLIENT },
    { "server",   VTUN_NAT_HACK_SERVER },   
    { "lzo",      VTUN_LZO }, 
    { "zlib",     VTUN_ZLIB }, 

@@ -33,6 +33,7 @@
 #include "vtun.h"
 #include "lib.h"
 #include "sys_dropcaps.h"
+#include "cfg_values.h"
 
 int lineno = 1;
 
@@ -50,7 +51,7 @@ void *cp_cmd(void *d, void *u);
 int  free_cmd(void *d, void *u);
 
 void copy_addr(struct vtun_host *to, struct vtun_host *from);
-int  free_host(void *d, void *u);
+void free_host(struct vtun_host *h);
 void free_addr(struct vtun_host *h);
 void free_host_list(void);
 
@@ -94,6 +95,7 @@ static int cfg_error_logger = CFG_ERROR_SYSLOG;
 %token K_UP K_DOWN K_SYSLOG K_IPROUTE K_EXPERIMENTAL K_HARDENING
 %token K_SETUID
 %token K_SETGID
+%token K_REQUIRES
 
 %token <str> K_HOST K_ERROR
 %token <str> WORD PATH STRING
@@ -139,7 +141,7 @@ statement: '\n'
 		  /* Check if session definition is complete */ 
 		  if (!parse_host->passwd) {
 		  	cfg_error("Ignored incomplete session definition '%s'", parse_host->host);
-			free_host(parse_host, NULL);			
+			free_host(parse_host);
 			free(parse_host);
 		  } else {
 		  	/* Add host to the list */
@@ -407,7 +409,13 @@ host_option: '\n'
   | K_NAT_HACK NUM 	{  
 #ifdef ENABLE_NAT_HACK
 			  parse_host->flags &= ~VTUN_NAT_HACK_MASK;
-			  parse_host->flags |= $2;
+			  switch ($2) {
+			     case VTUN_PARAM_CLIENT:
+			        parse_host->flags |= VTUN_NAT_HACK_CLIENT;
+			        break;
+			     default:
+			        parse_host->flags |= $2;
+			  }
 #else
 			  cfg_error("This vtund binary was built with the NAT hack disabled for security purposes.");
 #endif
@@ -424,14 +432,16 @@ host_option: '\n'
 			  parse_cmds = &parse_host->down; 
    			  llist_free(parse_cmds, free_cmd, NULL);   
 			} '{' command_options '}' 
-
-  | K_ERROR		{
-			  cfg_error("Unknown option '%s'",$1);
-			  YYABORT;
-			} 
   | K_EXPERIMENTAL NUM {
                     parse_host->experimental = $2;
                 }
+  | K_REQUIRES requires_opts {
+                    vtun_syslog(LOG_WARNING, "Requires feature is experimental.");
+                }
+  | K_ERROR		{
+			  cfg_error("Unknown option '%s'",$1);
+			  YYABORT;
+			}
   ;
 
 compress:  
@@ -570,6 +580,35 @@ prog_option:
 			  parse_cmd.flags = $1;
 			}
   ;
+
+requires_opt:
+  WORD		{
+    if (!strcmp($1, "client")) {
+        parse_host->requires_flags |= VTUN_REQUIRES_CLIENT;
+    } else {
+        cfg_error("Unknown requires option '%s'", $1);
+        YYABORT;
+    }
+  }
+  | NUM {
+    /* client translates to number VTUN_NAT_HACK_CLIENT */
+    if ($1 == VTUN_PARAM_CLIENT) {
+        parse_host->requires_flags |= VTUN_REQUIRES_CLIENT;
+    } else {
+        cfg_error("Unknown requires option");
+        YYABORT;
+    }
+  }
+  ;
+
+requires_opts:
+  requires_opt
+  | requires_opts requires_opt
+  | K_ERROR		{
+   			  cfg_error("Unknown requires option '%s'",$1);
+  			  YYABORT;
+  }
+  ;
 %%
 
 int yyerror(char *s) 
@@ -650,14 +689,9 @@ void free_addr(struct vtun_host *h)
    }
 }
 
-int free_host(void *d, void *u)
+void free_host(struct vtun_host *h)
 {
-   struct vtun_host *h = d;
-
-   if (u && !strcmp(h->host, u))
-      return 1;
-
-   free(h->host);   
+   free(h->host);
    free(h->passwd);   
    
    llist_free(&h->up, free_cmd, NULL);   
@@ -669,17 +703,46 @@ int free_host(void *d, void *u)
     * allocated in the case of K_HOST except default_host */
    if( h->passwd )
       free(h);
-
- 
-   return 0;   
 }
+
+int free_host_all(void *d, void *u)
+{
+   struct vtun_host *h = d;
+
+   free_host(h);
+   return 0;
+}
+int free_host_for_client(void *d, void *u)
+{
+   struct vtun_host *h = d;
+
+   if (u && !strcmp(h->host, u))
+      return 1;
+   free_host(h);
+   return 0;
+}
+int free_host_for_server(void *d, void *u)
+{
+   struct vtun_host *h = d;
+
+   if (u && !strcmp(h->host, u) && (h->requires_flags & VTUN_REQUIRES_CLIENT) == 0)
+      return 1;
+   free_host(h);
+   return 0;
+}
+
 
 /* Find host in the hosts list.
  * NOTE: This function can be called only once since it deallocates hosts list.
  */ 
-inline struct vtun_host* find_host(char *host)
+inline struct vtun_host* find_host_client(char *host)
 {
-   return (struct vtun_host *)llist_free(&host_list, free_host, host);
+   return (struct vtun_host *)llist_free(&host_list, free_host_for_client, host);
+}
+
+inline struct vtun_host* find_host_server(char *host)
+{
+   return (struct vtun_host *)llist_free(&host_list, free_host_for_server, host);
 }
 
 int clear_nat_hack_server(void *d, void *u)
@@ -705,7 +768,7 @@ inline void clear_nat_hack_flags(int svr)
 
 inline void free_host_list(void)
 {
-   llist_free(&host_list, free_host, NULL);
+   llist_free(&host_list, free_host_all, NULL);
 }
 
 static struct {
@@ -761,7 +824,7 @@ void before_read_config()
 
 int after_read_config()
 {
-   free_host(&default_host, NULL);
+   free_host(&default_host);
 
    return !llist_empty(&host_list);
 }

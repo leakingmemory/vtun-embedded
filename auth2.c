@@ -177,7 +177,7 @@ struct vtun_host * auth_server_v2(int fd, char *host)
                     (str2=strtok(NULL," :")) ) {
                     if( !strcmp(str1,"CHAL") ){
                         if( cs2cl(str2,chal_res) &&
-                            (h = find_host(host)) ) {
+                            (h = find_host_server(host)) ) {
 
                             decrypt_chal_v2(chal_res, h->passwd);
 

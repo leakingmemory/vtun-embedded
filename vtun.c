@@ -177,7 +177,7 @@ int vtun_main(int argc, char *argv[], char *env[])
 	}
 	hst = argv[optind++];
 
-        if( !(host = find_host(hst)) ){	
+        if( !(host = find_host_client(hst)) ){
 	   vtun_syslog(LOG_ERR,"Host %s not found in %s", hst, vtun.cfg_file);
 	   exit(1);
         }
