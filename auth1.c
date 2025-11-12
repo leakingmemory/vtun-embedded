@@ -29,6 +29,7 @@
 #include "vtun.h"
 #include "lib.h"
 #include <string.h>
+#include <syslog.h>
 
 /* Authentication (Server side) */
 struct vtun_host * auth_server_v1(int fd, char *host)
@@ -52,7 +53,9 @@ struct vtun_host * auth_server_v1(int fd, char *host)
 
                     decrypt_chal(chal_res, h->passwd);
 
-                    if( !memcmp(chal_req, chal_res, VTUN_CHAL_SIZE) &&
+                    int chal_ok = !memcmp(chal_req, chal_res, VTUN_CHAL_SIZE);
+
+                    if( chal_ok &&
                         (h->requires_flags & VTUN_REQUIRES_BIDIRAUTH) == 0 ){
                         /* Auth successeful. */
 
@@ -63,8 +66,12 @@ struct vtun_host * auth_server_v1(int fd, char *host)
                             /* Multiple connections are denied */
                             h = NULL;
                         }
-                    } else
+                    } else {
+                        if (chal_ok && (h->requires_flags & VTUN_REQUIRES_BIDIRAUTH) != 0) {
+                            vtun_syslog(LOG_ERR, "Connection rejected because of lack of bidirectional authentication (protocol 3.1)");
+                        }
                         h = NULL;
+                    }
                 }
             }
         }
@@ -83,6 +90,7 @@ int auth_client_v1(int fd, struct vtun_host *host)
     int stage, success=0 ;
 
     if ((host->requires_flags & VTUN_REQUIRES_BIDIRAUTH) != 0) {
+        vtun_syslog(LOG_ERR, "Connection rejected because of lack of bidirectional authentication (protocol 3.1)");
         print_p(fd, "ERR\n");
         return success;
     }

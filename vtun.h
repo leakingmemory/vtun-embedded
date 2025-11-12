@@ -83,8 +83,9 @@ struct vtun_addr {
 #define VTUN_ADDR_IFACE	0x01 
 #define VTUN_ADDR_NAME  0x02
 
-#define VTUN_REQUIRES_CLIENT    1
-#define VTUN_REQUIRES_BIDIRAUTH 2
+#define VTUN_REQUIRES_CLIENT     1
+#define VTUN_REQUIRES_BIDIRAUTH  2
+#define VTUN_REQUIRES_ENCRYPTION 4
 
 struct vtun_host {
    char *host;

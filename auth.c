@@ -88,7 +88,7 @@ static struct vtun_host *auth_server_do(int fd)
 }
 
 /* Authentication (Server side) */
-struct vtun_host * auth_server(int fd)
+static struct vtun_host * spawn_auth_server(int fd)
 {
     if (vtun.setuid || vtun.setgid) {
         int fds[2];
@@ -184,6 +184,18 @@ struct vtun_host * auth_server(int fd)
     return auth_server_do(fd);
 }
 
+/* Authentication (Server side) */
+struct vtun_host * auth_server(int fd) {
+    struct vtun_host *host = spawn_auth_server(fd);
+    if (host != NULL &&
+        (host->requires_flags & VTUN_REQUIRES_ENCRYPTION) != 0 &&
+        (host->flags & VTUN_ENCRYPT) == 0) {
+        vtun_syslog(LOG_ERR, "Connection rejected because of lack of encryption (requires encryption configured)");
+        return NULL;
+    }
+    return host;
+}
+
 int auth_client_v1(int fd, struct vtun_host *host);
 int auth_client_v2(int fd, struct vtun_host *host);
 
@@ -223,8 +235,7 @@ static int do_auth_client(int fd, struct vtun_host *host)
 	return 0;
 }
 
-/* Authentication (Client side) */
-int auth_client(int fd, struct vtun_host *host)
+static int spawn_auth_client(int fd, struct vtun_host *host)
 {
     if (vtun.setuid || vtun.setgid) {
         int fds[2];
@@ -296,4 +307,16 @@ int auth_client(int fd, struct vtun_host *host)
         }
     }
 	return do_auth_client(fd, host);
+}
+
+/* Authentication (Client side) */
+int auth_client(int fd, struct vtun_host *host) {
+    int result = spawn_auth_client(fd, host);
+    if (result &&
+        (host->requires_flags & VTUN_REQUIRES_ENCRYPTION) != 0 &&
+        (host->flags & VTUN_ENCRYPT) == 0) {
+        vtun_syslog(LOG_ERR, "Connection rejected because of lack of encryption (requires encryption configured)");
+        return 0;
+    }
+    return result;
 }
