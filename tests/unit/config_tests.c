@@ -348,6 +348,26 @@ START_TEST(test_requires_bidirauth)
 }
 END_TEST
 
+START_TEST(test_requires_3_1)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        " experimental yes;\n"
+        " requires \"3.1\";\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_client("dummy");
+    ck_assert_int_eq(VTUN_REQUIRES_BIDIRAUTH, dummy->requires_flags);
+
+    free_config();
+}
+END_TEST
+
 START_TEST(test_requires_all)
 {
     init_config();
@@ -357,7 +377,7 @@ START_TEST(test_requires_all)
         " type ether;\n"
         " proto tcp;\n"
         " experimental yes;\n"
-        " requires client bidirauth;\n"
+        " requires client bidirauth \"3.1\";\n"
         "}\n";
     ck_assert_int_ne(0, read_config_from_string(cfg));
 
@@ -395,6 +415,7 @@ Suite *config_suite(void)
     tcase_add_test(tc_core, test_requires_none);
     tcase_add_test(tc_core, test_requires_client);
     tcase_add_test(tc_core, test_requires_bidirauth);
+    tcase_add_test(tc_core, test_requires_3_1);
     tcase_add_test(tc_core, test_requires_all);
 
     suite_add_tcase(s, tc_core);

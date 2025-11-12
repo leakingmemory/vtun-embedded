@@ -590,6 +590,14 @@ requires_opt:
         YYABORT;
     }
   }
+  | STRING		{
+    if (!strcmp($1, "3.1")) {
+        parse_host->requires_flags |= VTUN_REQUIRES_BIDIRAUTH;
+    } else {
+        cfg_error("Unknown requires option '%s'", $1);
+        YYABORT;
+    }
+  }
   | NUM {
     /* client translates to number VTUN_NAT_HACK_CLIENT */
     if ($1 == VTUN_PARAM_CLIENT) {
