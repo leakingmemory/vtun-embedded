@@ -52,7 +52,8 @@ struct vtun_host * auth_server_v1(int fd, char *host)
 
                     decrypt_chal(chal_res, h->passwd);
 
-                    if( !memcmp(chal_req, chal_res, VTUN_CHAL_SIZE) ){
+                    if( !memcmp(chal_req, chal_res, VTUN_CHAL_SIZE) &&
+                        (h->requires_flags & VTUN_REQUIRES_BIDIRAUTH) == 0 ){
                         /* Auth successeful. */
 
                         /* Lock host */
@@ -80,6 +81,11 @@ int auth_client_v1(int fd, struct vtun_host *host)
 {
     char buf[VTUN_MESG_SIZE], chal[VTUN_CHAL_SIZE];
     int stage, success=0 ;
+
+    if ((host->requires_flags & VTUN_REQUIRES_BIDIRAUTH) != 0) {
+        print_p(fd, "ERR\n");
+        return success;
+    }
 
     print_p(fd,"HOST: %s\n",host->host);
 

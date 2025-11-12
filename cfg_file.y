@@ -583,8 +583,8 @@ prog_option:
 
 requires_opt:
   WORD		{
-    if (!strcmp($1, "client")) {
-        parse_host->requires_flags |= VTUN_REQUIRES_CLIENT;
+    if (!strcmp($1, "bidirauth")) {
+        parse_host->requires_flags |= VTUN_REQUIRES_BIDIRAUTH;
     } else {
         cfg_error("Unknown requires option '%s'", $1);
         YYABORT;
