@@ -419,9 +419,22 @@ int linkfd(struct vtun_host *host)
      if(host->flags & VTUN_LZO)
 	lfd_add_mod(&lfd_lzo);
 
-     if(host->flags & VTUN_ENCRYPT) {
+    int requires_integrity_prot = host->requires_flags & VTUN_REQUIRES_INTEGRITY;
+
+    int encryption_enabled = host->flags & VTUN_ENCRYPT;
+
+    if (requires_integrity_prot && !encryption_enabled) {
+        vtun_syslog(LOG_ERR, "Encryption is currently required for integrity protection");
+        return 0;
+    }
+
+     if(encryption_enabled) {
         switch (host->cipher) {
             case VTUN_LEGACY_ENCRYPT:
+                if (requires_integrity_prot) {
+                    vtun_syslog(LOG_ERR, "Integrity protection required by config, but legacy encryption does not do integrity protection (aes128gcm and aes256gcm does)");
+                    return 0;
+                }
                 lfd_add_mod(&lfd_legacy_encrypt);
                 break;
             case VTUN_ENC_AES128GCM:
@@ -429,6 +442,10 @@ int linkfd(struct vtun_host *host)
                 lfd_add_mod(&lfd_gcm_encrypt);
                 break;
             default:
+                if (requires_integrity_prot) {
+                    vtun_syslog(LOG_ERR, "Integrity protection required by config, but the current encryption scheme does not do integrity protection (aes128gcm and aes256gcm does)");
+                    return 0;
+                }
                 lfd_add_mod(&lfd_encrypt);
         }
      }

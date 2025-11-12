@@ -587,6 +587,8 @@ requires_opt:
         parse_host->requires_flags |= VTUN_REQUIRES_BIDIRAUTH;
     } else if (!strcmp($1, "encryption")) {
         parse_host->requires_flags |= VTUN_REQUIRES_ENCRYPTION;
+    } else if (!strcmp($1, "integrity")) {
+        parse_host->requires_flags |= VTUN_REQUIRES_ENCRYPTION | VTUN_REQUIRES_INTEGRITY;
     } else {
         cfg_error("Unknown requires option '%s'", $1);
         YYABORT;

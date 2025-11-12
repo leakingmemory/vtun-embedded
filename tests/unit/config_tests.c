@@ -388,6 +388,26 @@ START_TEST(test_requires_encryption)
 }
 END_TEST
 
+START_TEST(test_requires_integrity)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        " experimental yes;\n"
+        " requires integrity;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_client("dummy");
+    ck_assert_int_eq(VTUN_REQUIRES_ENCRYPTION | VTUN_REQUIRES_INTEGRITY, dummy->requires_flags);
+
+    free_config();
+}
+END_TEST
+
 START_TEST(test_requires_all)
 {
     init_config();
@@ -397,12 +417,12 @@ START_TEST(test_requires_all)
         " type ether;\n"
         " proto tcp;\n"
         " experimental yes;\n"
-        " requires client bidirauth \"3.1\" encryption;\n"
+        " requires client bidirauth \"3.1\" encryption integrity;\n"
         "}\n";
     ck_assert_int_ne(0, read_config_from_string(cfg));
 
     struct vtun_host *dummy = find_host_client("dummy");
-    ck_assert_int_eq(VTUN_REQUIRES_CLIENT | VTUN_REQUIRES_BIDIRAUTH | VTUN_REQUIRES_ENCRYPTION, dummy->requires_flags);
+    ck_assert_int_eq(VTUN_REQUIRES_CLIENT | VTUN_REQUIRES_BIDIRAUTH | VTUN_REQUIRES_ENCRYPTION | VTUN_REQUIRES_INTEGRITY, dummy->requires_flags);
 
     free_config();
 }
@@ -437,6 +457,7 @@ Suite *config_suite(void)
     tcase_add_test(tc_core, test_requires_bidirauth);
     tcase_add_test(tc_core, test_requires_3_1);
     tcase_add_test(tc_core, test_requires_encryption);
+    tcase_add_test(tc_core, test_requires_integrity);
     tcase_add_test(tc_core, test_requires_all);
 
     suite_add_tcase(s, tc_core);
