@@ -245,6 +245,23 @@ AES cipher, 256 bit key, mode GCM (experimental)
 .RE
 .IP
 This option is ignored by the client.
+.IP \fBrequires\ \fBclient\ \fBbidirauth\ \fBencryption\ \fBintegrity\ \fB"3.1"\ (experimental)\fR
+set requirements for the connection. This is specifically for the client where
+you can set requirements for what configuration it will accept from the client.
+Multiple requirements can be specified. For now this is experimental.
+.RS
+.IP \fBclient\fR
+The configuration is for client only, will not be used in server mode.
+.IP \fBbidirauth\fR
+Client requires the server to authenticate as well as the client. Authentication in both directions.
+.IP \fBencryption\fR
+Requires the connection to be encrypted.
+.IP \fBintegrity\fR
+Requires the integrity of the data to be protected. Some encryption algorithms do this, like aes128gcm and aes256gcm.
+.IP \fB"3.1"\fR
+Version 3.1 modes. Alias for bidirauth.
+.RE
+
 .IP \fBkeepalive\ \fByes\fR|\fBno\fR|\fIinterval\fB:\fIcount\fR
 enable or disable connection keep-alive. Time \fIinterval\fR is a period
 between connection checks, in seconds, and \fIcount\fR is the maximum number
