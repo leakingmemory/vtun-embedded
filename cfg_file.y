@@ -95,7 +95,7 @@ static int cfg_error_logger = CFG_ERROR_SYSLOG;
 %token K_UP K_DOWN K_SYSLOG K_IPROUTE K_EXPERIMENTAL K_HARDENING
 %token K_SETUID
 %token K_SETGID
-%token K_REQUIRES
+%token K_REQUIRES K_ACCEPT_ENCRYPT
 
 %token <str> K_HOST K_ERROR
 %token <str> WORD PATH STRING
@@ -376,6 +376,9 @@ host_option: '\n'
 			  } else
 			     parse_host->flags &= ~VTUN_ENCRYPT;
 			}
+  | K_ACCEPT_ENCRYPT accept_encrypt_opts {
+      vtun_syslog(LOG_WARNING, "accept_encrypt feature is experimental.");
+  }
 
   | K_KALIVE 		{
 			  parse_host->flags &= ~VTUN_KEEP_ALIVE; 
@@ -618,6 +621,30 @@ requires_opts:
   | requires_opts requires_opt
   | K_ERROR		{
    			  cfg_error("Unknown requires option '%s'",$1);
+  			  YYABORT;
+  }
+  ;
+
+accept_encrypt_opt:
+  NUM {
+      uint32_t bit;
+      if ($1 > 0 && $1 < 32) {
+          bit = ((uint32_t)1) << $1;
+      } else if ($1 == VTUN_LEGACY_ENCRYPT) {
+          bit = 1;
+      } else {
+          cfg_error("Unknown accept_encrypt option '%d'", $1);
+          YYABORT;
+      }
+      parse_host->accept_encrypt_bits_0_31 |= bit;
+  }
+  ;
+
+accept_encrypt_opts:
+  accept_encrypt_opt
+  | accept_encrypt_opts accept_encrypt_opt
+  | K_ERROR		{
+   			  cfg_error("Unknown accept_encrypt option '%s'",$1);
   			  YYABORT;
   }
   ;

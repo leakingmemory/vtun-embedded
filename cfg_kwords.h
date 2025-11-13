@@ -68,6 +68,7 @@ struct kword cfg_keyword[] = {
    { "setuid", K_SETUID },
    { "setgid", K_SETGID },
    { "requires", K_REQUIRES },
+   { "accept_encrypt", K_ACCEPT_ENCRYPT },
    { NULL , 0 }
 };
 

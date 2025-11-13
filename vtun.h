@@ -24,6 +24,7 @@
 #define _VTUN_H
 
 #include <sys/types.h>
+#include <stdint.h>
 #include "llist.h"
 
 /* Default VTUN port */
@@ -105,6 +106,11 @@ struct vtun_host {
 
    int experimental;
    int requires_flags;
+   /*
+    * bit0 - legacy encryption accepted
+    * bit1-bit31 - encryption 1-31
+    */
+   uint32_t accept_encrypt_bits_0_31;
 
    int  rmt_fd;
    int  loc_fd;

@@ -423,6 +423,84 @@ START_TEST(test_requires_all)
 
     struct vtun_host *dummy = find_host_client("dummy");
     ck_assert_int_eq(VTUN_REQUIRES_CLIENT | VTUN_REQUIRES_BIDIRAUTH | VTUN_REQUIRES_ENCRYPTION | VTUN_REQUIRES_INTEGRITY, dummy->requires_flags);
+    ck_assert_int_eq(0, dummy->accept_encrypt_bits_0_31);
+
+    free_config();
+}
+END_TEST
+
+START_TEST(test_accept_encrypt_legacy)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        " accept_encrypt oldblowfish128ecb;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_client("dummy");
+    ck_assert_int_eq(1, dummy->accept_encrypt_bits_0_31);
+
+    free_config();
+}
+END_TEST
+
+START_TEST(test_accept_encrypt_one)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        " accept_encrypt blowfish128ecb;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_client("dummy");
+    ck_assert_int_eq(2, dummy->accept_encrypt_bits_0_31);
+
+    free_config();
+}
+END_TEST
+
+START_TEST(test_accept_encrypt_two_independent)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        " accept_encrypt blowfish128cbc;\n"
+        " accept_encrypt blowfish128cfb;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_client("dummy");
+    ck_assert_int_eq(12, dummy->accept_encrypt_bits_0_31);
+
+    free_config();
+}
+END_TEST
+
+START_TEST(test_accept_encrypt_two_joined)
+{
+    init_config();
+    const char *cfg =
+        "dummy {\n"
+        " passwd x;\n"
+        " type ether;\n"
+        " proto tcp;\n"
+        " accept_encrypt blowfish128ofb blowfish256ecb;\n"
+        "}\n";
+    ck_assert_int_ne(0, read_config_from_string(cfg));
+
+    struct vtun_host *dummy = find_host_client("dummy");
+    ck_assert_int_eq(48, dummy->accept_encrypt_bits_0_31);
 
     free_config();
 }
@@ -459,6 +537,10 @@ Suite *config_suite(void)
     tcase_add_test(tc_core, test_requires_encryption);
     tcase_add_test(tc_core, test_requires_integrity);
     tcase_add_test(tc_core, test_requires_all);
+    tcase_add_test(tc_core, test_accept_encrypt_legacy);
+    tcase_add_test(tc_core, test_accept_encrypt_one);
+    tcase_add_test(tc_core, test_accept_encrypt_two_independent);
+    tcase_add_test(tc_core, test_accept_encrypt_two_joined);
 
     suite_add_tcase(s, tc_core);
 

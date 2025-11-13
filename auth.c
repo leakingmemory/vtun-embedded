@@ -184,6 +184,28 @@ static struct vtun_host * spawn_auth_server(int fd)
     return auth_server_do(fd);
 }
 
+static int is_encryption_acceptable(struct vtun_host *host) {
+    if (host->accept_encrypt_bits_0_31 == 0) {
+        return 1;
+    }
+    if ((host->flags & VTUN_ENCRYPT) == 0) {
+        return 0;
+    }
+    uint32_t bit;
+    if (host->cipher > 0 && host->cipher < 32) {
+        bit = ((uint32_t)1) << host->cipher;
+    } else if (host->cipher == VTUN_LEGACY_ENCRYPT) {
+        bit = 1;
+    } else {
+        return 0;
+    }
+    if ((host->accept_encrypt_bits_0_31 & bit) != 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 /* Authentication (Server side) */
 struct vtun_host * auth_server(int fd) {
     struct vtun_host *host = spawn_auth_server(fd);
@@ -193,7 +215,12 @@ struct vtun_host * auth_server(int fd) {
         vtun_syslog(LOG_ERR, "Connection rejected because of lack of encryption (requires encryption configured)");
         return NULL;
     }
-    return host;
+    if (is_encryption_acceptable(host)) {
+        return host;
+    } else {
+        vtun_syslog(LOG_ERR, "Connection rejected because of accept_encrypt encryption allowlist");
+        return NULL;
+    }
 }
 
 int auth_client_v1(int fd, struct vtun_host *host);
@@ -318,5 +345,13 @@ int auth_client(int fd, struct vtun_host *host) {
         vtun_syslog(LOG_ERR, "Connection rejected because of lack of encryption (requires encryption configured)");
         return 0;
     }
-    return result;
+    if (result) {
+        if (is_encryption_acceptable(host)) {
+            return result;
+        } else {
+            vtun_syslog(LOG_ERR, "Connection rejected because of accept_encrypt encryption allowlist.");
+            return 0;
+        }
+    }
+    return 0;
 }
