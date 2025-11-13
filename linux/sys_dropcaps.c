@@ -23,9 +23,11 @@
 #include <linux/prctl.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
-#include <sys/capability.h>
 #include <string.h>
 #include <stdint.h>
+
+#define CAP_SETGID 6
+#define CAP_SETUID 7
 
 int dropcaps_supported() {
     return 1;
