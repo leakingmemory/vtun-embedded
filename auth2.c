@@ -205,14 +205,14 @@ struct vtun_host * auth_server_v2(int fd, char *host)
                 buf[sizeof(buf)-1]='\0';
                 strtok(buf,"\r\n");
 
-                if( !strncmp(buf,"OK CHAL",7) && cs2cl(buf,chal)){
+                if( flags != NULL && !strncmp(buf,"OK CHAL",7) && cs2cl(buf,chal)){
                     {
                         char *mix;
                         size_t mixlen;
                         {
                             size_t flagslen = strlen(flags);
                             size_t hostlen = strlen(host);
-                            mixlen = (flags != NULL ? flagslen : 0) + hostlen + 1;
+                            mixlen = flagslen + hostlen + 1;
                             mix = malloc(mixlen);
                             memcpy(mix, flags, flagslen);
                             mix[flagslen] = ':';
@@ -299,7 +299,7 @@ int auth_client_v2(int fd, struct vtun_host *host)
                             {
                                 size_t flagslen = strlen(flags);
                                 size_t hostlen = strlen(host->host);
-                                mixlen = (flags != NULL ? flagslen : 0) + hostlen + 1;
+                                mixlen = flagslen + hostlen + 1;
                                 mix = malloc(mixlen);
                                 memcpy(mix, flags, flagslen);
                                 mix[flagslen] = ':';
