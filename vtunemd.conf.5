@@ -262,6 +262,11 @@ Requires the integrity of the data to be protected. Some encryption algorithms d
 Version 3.1 modes. Alias for bidirauth.
 .RE
 
+.IP \fBaccept_encrypt\ \fB<encryption-algo>\ (experimental)\fR
+This accepts the same algorithms as the 'encrypt' keyword. This can be used
+to set up an allowlist of encryption algorithms that the client will accept.
+Multiple algorithms can be specified, also multiple accept_encrypt statements
+is accepted. This setting is currently experimental.
 .IP \fBkeepalive\ \fByes\fR|\fBno\fR|\fIinterval\fB:\fIcount\fR
 enable or disable connection keep-alive. Time \fIinterval\fR is a period
 between connection checks, in seconds, and \fIcount\fR is the maximum number
