@@ -31,6 +31,7 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/rand.h>
+#include <openssl/err.h>
 #include <time.h>
 
 /* lfd_encrypt.c: */
@@ -67,7 +68,7 @@ static int alloc_gcm_encrypt(struct vtun_host *host) {
     const EVP_CIPHER *sideband_cipher;
     int key_size;
 
-    vtun_syslog(LOG_INFO, "AES-GCM initing");
+    vtun_syslog(LOG_INFO, "AEAD initing");
     ctx_enc = EVP_CIPHER_CTX_new();
     ctx_dec = EVP_CIPHER_CTX_new();
     ctx_enc_sideband = EVP_CIPHER_CTX_new();
@@ -75,10 +76,12 @@ static int alloc_gcm_encrypt(struct vtun_host *host) {
     cipher_no = host->cipher;
     switch (cipher_no) {
         case VTUN_ENC_AES128GCM:
+        case VTUN_ENC_AES128GCMSIV:
             sideband_cipher = EVP_aes_128_ecb();
             key_size = 16;
             break;
         case VTUN_ENC_AES256GCM:
+        case VTUN_ENC_AES256GCMSIV:
             sideband_cipher = EVP_aes_256_ecb();
             key_size = 32;
             break;
@@ -101,8 +104,8 @@ static int alloc_gcm_encrypt(struct vtun_host *host) {
     encryption_keyschedule_done = 0;
     decryption_keyschedule_done = 0;
     request_reinit = 0;
-    vtun_syslog(LOG_WARNING, "AES-GCM is experimental, compatibility is not guaranteed");
-    vtun_syslog(LOG_INFO, "AES-GCM is ready to start");
+    vtun_syslog(LOG_WARNING, "AEAD is experimental, compatibility is not guaranteed");
+    vtun_syslog(LOG_INFO, "AEAD is ready to start");
     return 0;
 }
 
@@ -121,24 +124,16 @@ static int gcm_add_inband(LfdSubBuffer *sub);
 
 static int gcm_encrypt(LfdBuffer *buf) {
     int off = 0;
-    if (!encryption_inited) {
+    int is_init = !encryption_inited;
+    if (is_init) {
         off = gcm_set_up_encryption(buf);
         if (off < 0) {
-            vtun_syslog(LOG_ERR, "Failed to generate init message for AES-GCM");
+            vtun_syslog(LOG_ERR, "Failed to generate init message for AEAD");
             return -1;
         }
         encryption_inited = 1;
     }
     LfdSubBuffer sub = lfd_sub_buffer(buf, off, buf->size - off);
-    const EVP_CIPHER *cipher;
-    switch (cipher_no) {
-        case VTUN_ENC_AES128GCM:
-            cipher = EVP_aes_128_gcm();
-            break;
-        case VTUN_ENC_AES256GCM:
-            cipher = EVP_aes_256_gcm();
-            break;
-    }
     if (!gcm_add_inband(&sub)) {
         return -1;
     }
@@ -149,8 +144,47 @@ static int gcm_encrypt(LfdBuffer *buf) {
     uint8_t noncebuf[SHA256_DIGEST_LENGTH];
     uint8_t *nonce = SHA256(ivdata, 32, noncebuf);
     if (!encryption_keyschedule_done) {
+        const EVP_CIPHER *cipher;
+        switch (cipher_no) {
+            case VTUN_ENC_AES128GCM:
+                cipher = EVP_aes_128_gcm();
+                vtun_syslog(LOG_INFO, "Encryption using AES-128-GCM is starting");
+                break;
+            case VTUN_ENC_AES256GCM:
+                cipher = EVP_aes_256_gcm();
+                vtun_syslog(LOG_INFO, "Encryption using AES-256-GCM is starting");
+                break;
+            case VTUN_ENC_AES128GCMSIV:
+                cipher = EVP_CIPHER_fetch(NULL, "AES-128-GCM-SIV", NULL);
+                vtun_syslog(LOG_INFO, "Encryption using AES-128-GCM-SIV is starting");
+                break;
+            case VTUN_ENC_AES256GCMSIV:
+                cipher = EVP_CIPHER_fetch(NULL, "AES-256-GCM-SIV", NULL);
+                vtun_syslog(LOG_INFO, "Encryption using AES-256-GCM-SIV is starting");
+                break;
+        }
+        if (cipher == NULL) {
+            vtun_syslog(LOG_ERR, "The requested aead cipher is not supported by OpenSSL");
+            return -1;
+        }
         EVP_EncryptInit_ex(ctx_enc, cipher, NULL, (unsigned char *) pkey, NULL);
+        switch (cipher_no) {
+            case VTUN_ENC_AES128GCMSIV:
+            case VTUN_ENC_AES256GCMSIV:
+                EVP_CIPHER_free((EVP_CIPHER *) cipher);
+                break;
+            default:
+        }
         encryption_keyschedule_done = 1;
+    }
+    int whole_msg_at_once;
+    switch (cipher_no) {
+        case VTUN_ENC_AES128GCMSIV:
+        case VTUN_ENC_AES256GCMSIV:
+            whole_msg_at_once = 1;
+            break;
+        default:
+            whole_msg_at_once = 0;
     }
     EVP_EncryptInit_ex(ctx_enc, NULL, NULL, NULL, nonce);
     EVP_CIPHER_CTX_set_padding(ctx_enc, 0);
@@ -162,25 +196,45 @@ static int gcm_encrypt(LfdBuffer *buf) {
         RAND_bytes(lfd_sub_get_ptr(&sub, len - pad), pad - 1);
     }
     ((uint8_t *) lfd_sub_get_ptr(&sub, len - 1))[0] = (uint8_t) pad;
-    for (size_t off = 0; off < len; off += 16) {
+    if (whole_msg_at_once) {
         int blkout = 0;
-        void *ptr = lfd_sub_get_ptr(&sub, off);
-        if (!EVP_EncryptUpdate(ctx_enc, ptr, &blkout, ptr, 16) ||
-            blkout != 16) {
-            vtun_syslog(LOG_ERR, "Failed to encrypt AES-GCM block");
+        void *ptr = lfd_sub_get_ptr(&sub, 0);
+        if (!EVP_EncryptUpdate(ctx_enc, ptr, &blkout, ptr, len) ||
+            blkout != len) {
+            long err;
+            while ((err = ERR_get_error())) {
+                char *errstr = ERR_error_string(err, NULL);
+                vtun_syslog(LOG_ERR, "OpenSSL error: %s", errstr);
+            }
+            vtun_syslog(LOG_ERR, "Failed to encrypt AEAD block");
             return -1;
+        }
+    } else {
+        for (size_t off = 0; off < len; off += 16) {
+            int blkout = 0;
+            void *ptr = lfd_sub_get_ptr(&sub, off);
+            if (!EVP_EncryptUpdate(ctx_enc, ptr, &blkout, ptr, 16) ||
+                blkout != 16) {
+                long err;
+                while ((err = ERR_get_error())) {
+                    char *errstr = ERR_error_string(err, NULL);
+                    vtun_syslog(LOG_ERR, "OpenSSL error: %s", errstr);
+                }
+                vtun_syslog(LOG_ERR, "Failed to encrypt AEAD block");
+                return -1;
+            }
         }
     }
     int finalout = 0;
     void *ptr = lfd_sub_get_ptr(&sub, 0);
     if (!EVP_EncryptFinal_ex(ctx_enc, ptr, &finalout) ||
         finalout != 0) {
-        vtun_syslog(LOG_ERR, "Failed to finalize AES-GCM message");
+        vtun_syslog(LOG_ERR, "Failed to finalize AEAD message");
         return -1;
     }
     lfd_sub_extend(&sub, 16);
     if (!EVP_CIPHER_CTX_ctrl(ctx_enc, EVP_CTRL_GCM_GET_TAG, 16, lfd_sub_get_ptr(&sub, len))) {
-        vtun_syslog(LOG_ERR, "Failed to get message tag for AES-GCM message");
+        vtun_syslog(LOG_ERR, "Failed to get message tag for AEAD message");
         return -1;
     }
 
@@ -193,22 +247,13 @@ static int read_inband_message(LfdBuffer *buf);
 static int gcm_decrypt(LfdBuffer *buf) {
     if (!decryption_inited) {
         if (gcm_set_up_decryption(buf) < 0) {
-            vtun_syslog(LOG_ERR, "Set up decryption failed for AES-GCM");
+            vtun_syslog(LOG_ERR, "Set up decryption failed for AEAD");
             return -1;
         }
         if (!decryption_inited) {
             lfd_reset(buf);
             return 0;
         }
-    }
-    const EVP_CIPHER *cipher;
-    switch (cipher_no) {
-        case VTUN_ENC_AES128GCM:
-            cipher = EVP_aes_128_gcm();
-            break;
-        case VTUN_ENC_AES256GCM:
-            cipher = EVP_aes_256_gcm();
-            break;
     }
     uint8_t ivdata[32];
     memcpy(ivdata, dec_iv, 16);
@@ -217,8 +262,47 @@ static int gcm_decrypt(LfdBuffer *buf) {
     uint8_t noncebuf[SHA256_DIGEST_LENGTH];
     uint8_t *nonce = SHA256(ivdata, 32, noncebuf);
     if (!decryption_keyschedule_done) {
+        const EVP_CIPHER *cipher;
+        switch (cipher_no) {
+            case VTUN_ENC_AES128GCM:
+                cipher = EVP_aes_128_gcm();
+                vtun_syslog(LOG_INFO, "Decryption using AES-128-GCM is starting");
+                break;
+            case VTUN_ENC_AES256GCM:
+                cipher = EVP_aes_256_gcm();
+                vtun_syslog(LOG_INFO, "Decryption using AES-256-GCM is starting");
+                break;
+            case VTUN_ENC_AES128GCMSIV:
+                cipher = EVP_CIPHER_fetch(NULL, "AES-128-GCM-SIV", NULL);
+                vtun_syslog(LOG_INFO, "Decryption using AES-128-GCM-SIV is starting");
+                break;
+            case VTUN_ENC_AES256GCMSIV:
+                cipher = EVP_CIPHER_fetch(NULL, "AES-256-GCM-SIV", NULL);
+                vtun_syslog(LOG_INFO, "Decryption using AES-256-GCM-SIV is starting");
+                break;
+        }
+        if (cipher == NULL) {
+            vtun_syslog(LOG_ERR, "The requested aead cipher is not supported by OpenSSL");
+            return -1;
+        }
         EVP_DecryptInit_ex(ctx_dec, cipher, NULL, (unsigned char *) pkey, NULL);
+        switch (cipher_no) {
+            case VTUN_ENC_AES128GCMSIV:
+            case VTUN_ENC_AES256GCMSIV:
+                EVP_CIPHER_free((EVP_CIPHER *) cipher);
+                break;
+            default:
+        }
         decryption_keyschedule_done = 1;
+    }
+    int whole_msg_at_once;
+    switch (cipher_no) {
+        case VTUN_ENC_AES128GCMSIV:
+        case VTUN_ENC_AES256GCMSIV:
+            whole_msg_at_once = 1;
+            break;
+        default:
+            whole_msg_at_once = 0;
     }
     EVP_DecryptInit_ex(ctx_dec, NULL, NULL, NULL, nonce);
     EVP_CIPHER_CTX_set_padding(ctx_dec, 0);
@@ -228,17 +312,56 @@ static int gcm_decrypt(LfdBuffer *buf) {
         return -1;
     }
     len -= 16;
-    for (size_t off = 0; off < len; off += 16) {
-        int blkout = 0;
-        EVP_DecryptUpdate(ctx_dec, buf->ptr+off, &blkout, buf->ptr+off, 16);
+    switch (cipher_no) {
+        case VTUN_ENC_AES128GCMSIV:
+        case VTUN_ENC_AES256GCMSIV:
+            if (!EVP_CIPHER_CTX_ctrl(ctx_dec, EVP_CTRL_AEAD_SET_TAG, 16, buf->ptr+len)) {
+                vtun_syslog(LOG_ERR, "Failed to stage the AEAD tag for verification");
+                return -1;
+            }
+            break;
+        default:
     }
-    if (!EVP_CIPHER_CTX_ctrl(ctx_dec, EVP_CTRL_GCM_SET_TAG, 16, buf->ptr+len)) {
-        vtun_syslog(LOG_ERR, "Failed to stage the AES-GCM tag for verification");
-        return -1;
+    if (whole_msg_at_once) {
+        int blkout = 0;
+        if (!EVP_DecryptUpdate(ctx_dec, buf->ptr, &blkout, buf->ptr, len) ||
+            blkout != len) {
+            long err;
+            while ((err = ERR_get_error())) {
+                char *errstr = ERR_error_string(err, NULL);
+                vtun_syslog(LOG_ERR, "OpenSSL error: %s", errstr);
+            }
+            vtun_syslog(LOG_ERR, "Failed to decrypt AEAD block");
+            return -1;
+        }
+    } else {
+        for (size_t off = 0; off < len; off += 16) {
+            int blkout = 0;
+            if (!EVP_DecryptUpdate(ctx_dec, buf->ptr+off, &blkout, buf->ptr+off, 16) ||
+                blkout != 16) {
+                long err;
+                while ((err = ERR_get_error())) {
+                    char *errstr = ERR_error_string(err, NULL);
+                    vtun_syslog(LOG_ERR, "OpenSSL error: %s", errstr);
+                }
+                vtun_syslog(LOG_ERR, "Failed to decrypt AEAD block");
+                return -1;
+            }
+        }
+    }
+    switch (cipher_no) {
+        case VTUN_ENC_AES128GCM:
+        case VTUN_ENC_AES256GCM:
+            if (!EVP_CIPHER_CTX_ctrl(ctx_dec, EVP_CTRL_GCM_SET_TAG, 16, buf->ptr+len)) {
+                vtun_syslog(LOG_ERR, "Failed to stage the AEAD tag for verification");
+                return -1;
+            }
+            break;
+        default:
     }
     int finalout = 0;
     if (EVP_DecryptFinal(ctx_dec, buf->ptr+len, &finalout) <= 0) {
-        vtun_syslog(LOG_ERR, "Failed to verify the integrity of the AES-GCM message");
+        vtun_syslog(LOG_ERR, "Failed to verify the integrity of the AEAD message");
         return -1;
     }
     buf->size -= 16;
@@ -372,7 +495,7 @@ struct lfd_mod lfd_gcm_encrypt = {
 #else
 
 static int alloc_gcm_encrypt(struct vtun_host *host) {
-    vtun_syslog(LOG_ERR, "AES-GCM is not supported without openssl");
+    vtun_syslog(LOG_ERR, "AEAD ciphers are not supported without openssl");
     return -1;
 }
 

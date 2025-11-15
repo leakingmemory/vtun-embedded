@@ -439,6 +439,8 @@ int linkfd(struct vtun_host *host)
                 break;
             case VTUN_ENC_AES128GCM:
             case VTUN_ENC_AES256GCM:
+            case VTUN_ENC_AES128GCMSIV:
+            case VTUN_ENC_AES256GCMSIV:
                 lfd_add_mod(&lfd_gcm_encrypt);
                 break;
             default:
