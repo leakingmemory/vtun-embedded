@@ -115,5 +115,6 @@ struct kword cfg_param[] = {
    { "aes256gcm",      VTUN_ENC_AES256GCM },
    { "aes128gcmsiv",      VTUN_ENC_AES128GCMSIV },
    { "aes256gcmsiv",      VTUN_ENC_AES256GCMSIV },
+   { "chacha20poly1305",      VTUN_ENC_CHACHA20POLY1305 },
    { NULL , 0 }
 };

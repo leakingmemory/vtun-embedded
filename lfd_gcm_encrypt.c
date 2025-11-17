@@ -82,6 +82,7 @@ static int alloc_gcm_encrypt(struct vtun_host *host) {
             break;
         case VTUN_ENC_AES256GCM:
         case VTUN_ENC_AES256GCMSIV:
+        case VTUN_ENC_CHACHA20POLY1305:
             sideband_cipher = EVP_aes_256_ecb();
             key_size = 32;
             break;
@@ -161,6 +162,10 @@ static int gcm_encrypt(LfdBuffer *buf) {
             case VTUN_ENC_AES256GCMSIV:
                 cipher = EVP_CIPHER_fetch(NULL, "AES-256-GCM-SIV", NULL);
                 vtun_syslog(LOG_INFO, "Encryption using AES-256-GCM-SIV is starting");
+                break;
+            case VTUN_ENC_CHACHA20POLY1305:
+                cipher = EVP_chacha20_poly1305();
+                vtun_syslog(LOG_INFO, "Encryption using CHACHA20-POLY1305 is starting");
                 break;
         }
         if (cipher == NULL) {
@@ -279,6 +284,10 @@ static int gcm_decrypt(LfdBuffer *buf) {
             case VTUN_ENC_AES256GCMSIV:
                 cipher = EVP_CIPHER_fetch(NULL, "AES-256-GCM-SIV", NULL);
                 vtun_syslog(LOG_INFO, "Decryption using AES-256-GCM-SIV is starting");
+                break;
+            case VTUN_ENC_CHACHA20POLY1305:
+                cipher = EVP_chacha20_poly1305();
+                vtun_syslog(LOG_INFO, "Decryption using CHACHA20-POLY1305 is starting");
                 break;
         }
         if (cipher == NULL) {
