@@ -179,6 +179,7 @@ static int gcm_encrypt(LfdBuffer *buf) {
                 EVP_CIPHER_free((EVP_CIPHER *) cipher);
                 break;
             default:
+                break;
         }
         encryption_keyschedule_done = 1;
     }
@@ -301,6 +302,7 @@ static int gcm_decrypt(LfdBuffer *buf) {
                 EVP_CIPHER_free((EVP_CIPHER *) cipher);
                 break;
             default:
+                break;
         }
         decryption_keyschedule_done = 1;
     }
@@ -330,6 +332,7 @@ static int gcm_decrypt(LfdBuffer *buf) {
             }
             break;
         default:
+            break;
     }
     if (whole_msg_at_once) {
         int blkout = 0;
@@ -367,6 +370,7 @@ static int gcm_decrypt(LfdBuffer *buf) {
             }
             break;
         default:
+            break;
     }
     int finalout = 0;
     if (EVP_DecryptFinal(ctx_dec, buf->ptr+len, &finalout) <= 0) {
