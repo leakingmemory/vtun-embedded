@@ -1,6 +1,6 @@
 name: vtun-embedded
 base: core22
-version: '3.0.7'
+version: '3.0.8'
 license: GPL-2.0-or-later
 title: simple network tunneling service
 summary: vtun-embedded, fork of vtun, simple network tunneling service
