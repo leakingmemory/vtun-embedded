@@ -259,11 +259,9 @@ AC_LINK_DRV(`cat vtun.drivers`, $OS_DIR)
 AC_MSG_RESULT()
 
 dnl Build release name
-REL="3.X"
-XREL="3.1"
+REL="3.1"
 
 AC_DEFINE_UNQUOTED(VTUN_VER, "$REL `date '+%m/%d/%Y'`", [Vtun version])
-AC_DEFINE_UNQUOTED(VTUN_EXPERIMENTAL_VER, "$XREL `date '+%m/%d/%Y'`", [Vtun version])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

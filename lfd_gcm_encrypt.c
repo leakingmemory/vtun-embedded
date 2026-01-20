@@ -105,7 +105,6 @@ static int alloc_gcm_encrypt(struct vtun_host *host) {
     encryption_keyschedule_done = 0;
     decryption_keyschedule_done = 0;
     request_reinit = 0;
-    vtun_syslog(LOG_WARNING, "AEAD is experimental, compatibility is not guaranteed");
     vtun_syslog(LOG_INFO, "AEAD is ready to start");
     return 0;
 }

@@ -104,7 +104,6 @@ struct vtun_host {
    int  zlevel;
    int  cipher;
 
-   int experimental;
    int requires_flags;
    /*
     * bit0 - legacy encryption accepted
@@ -225,7 +224,6 @@ extern llist host_list;
 struct vtun_opts {
    int  timeout;
    int  persist;
-   int  experimental;
    int  setuid;
    int  setgid;
    int  dropcaps;

@@ -62,19 +62,18 @@ int serialize_host_to_pipe(int fd, const struct vtun_host *h)
     const uint32_t magic = 0x7674756E; /* 'vtun' */
     const uint16_t host_len = (uint16_t)(h->host ? strlen(h->host) : 0);
     const char *hoststr = h->host ? h->host : "";
-    uint32_t fields[12];
+    uint32_t fields[11];
     fields[0]  = (uint32_t) h->flags;
     fields[1]  = (uint32_t) h->timeout;
     fields[2]  = (uint32_t) h->spd_in;
     fields[3]  = (uint32_t) h->spd_out;
     fields[4]  = (uint32_t) h->zlevel;
     fields[5]  = (uint32_t) h->cipher;
-    fields[6]  = (uint32_t) h->experimental;
-    fields[7]  = (uint32_t) h->persist;
-    fields[8]  = (uint32_t) h->multi;
-    fields[9]  = (uint32_t) h->ka_interval;
-    fields[10] = (uint32_t) h->ka_maxfail;
-    fields[11] = 0;
+    fields[6]  = (uint32_t) h->persist;
+    fields[7]  = (uint32_t) h->multi;
+    fields[8]  = (uint32_t) h->ka_interval;
+    fields[9] = (uint32_t) h->ka_maxfail;
+    fields[10] = 0;
 
     if (write_full(fd, &magic, sizeof(magic)) < 0) {
         return -1;
@@ -119,8 +118,8 @@ struct vtun_host *deserialize_host_from_pipe(int fd)
     }
     hoststr[host_len] = '\0';
 
-    uint32_t fields[12];
-    if (read_full(fd, fields, sizeof(uint32_t) * 12) < 0) {
+    uint32_t fields[11];
+    if (read_full(fd, fields, sizeof(uint32_t) * 11) < 0) {
         free(hoststr);
         return NULL;
     }
@@ -141,11 +140,10 @@ struct vtun_host *deserialize_host_from_pipe(int fd)
     h->spd_out = (int)fields[3];
     h->zlevel = (int)fields[4];
     h->cipher = (int)fields[5];
-    h->experimental = (int)fields[6];
-    h->persist = (int)fields[7];
-    h->multi = (int)fields[8];
-    h->ka_interval = (int)fields[9];
-    h->ka_maxfail = (int)fields[10];
+    h->persist = (int)fields[6];
+    h->multi = (int)fields[7];
+    h->ka_interval = (int)fields[8];
+    h->ka_maxfail = (int)fields[9];
 
     return h;
 }

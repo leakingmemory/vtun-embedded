@@ -67,7 +67,7 @@ static struct vtun_host *auth_server_do(int fd)
 
     set_title("authentication");
 
-    print_p(fd, "VTUN server ver %s\n", vtun.experimental ? VTUN_EXPERIMENTAL_VER : VTUN_VER);
+    print_p(fd, "VTUN server ver %s\n", VTUN_VER);
 
     if (readn_t(fd, buf, VTUN_MESG_SIZE, vtun.timeout) > 0) {
         buf[sizeof(buf) - 1] = '\0';
@@ -154,7 +154,6 @@ static struct vtun_host * spawn_auth_server(int fd)
                 mismatch |= res->spd_out != child_host->spd_out;
                 mismatch |= res->zlevel != child_host->zlevel;
                 mismatch |= res->cipher != child_host->cipher;
-                mismatch |= res->experimental != child_host->experimental;
                 mismatch |= res->persist != child_host->persist;
                 mismatch |= res->multi != child_host->multi;
                 mismatch |= res->ka_interval != child_host->ka_interval;
@@ -246,10 +245,6 @@ static int do_auth_client(int fd, struct vtun_host *host)
 			}
 		}
 		vtun_syslog(LOG_INFO, "Protocol version read as %d.%d", proto_major, proto_minor);
-		if (!host->experimental && (proto_major > 3 || (proto_major == 3 && proto_minor > 0))) {
-			proto_major = 3;
-			proto_minor = 0;
-		}
 		if (proto_major > 3 || (proto_major == 3 && proto_minor > 0)) {
 			vtun_syslog(LOG_INFO, "Using 3.1 authentication");
 			return auth_client_v2(fd, host);
@@ -319,7 +314,6 @@ static int spawn_auth_client(int fd, struct vtun_host *host)
                 host->spd_out = child_host->spd_out;
                 host->zlevel = child_host->zlevel;
                 host->cipher = child_host->cipher;
-                host->experimental = child_host->experimental;
                 host->persist = child_host->persist;
                 host->multi = child_host->multi;
                 host->ka_interval = child_host->ka_interval;

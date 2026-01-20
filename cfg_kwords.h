@@ -63,7 +63,6 @@ struct kword cfg_keyword[] = {
    { "keepalive",K_KALIVE }, 
    { "stat",	 K_STAT }, 
    { "syslog",   K_SYSLOG },
-   { "experimental", K_EXPERIMENTAL },
    { "hardening", K_HARDENING },
    { "setuid", K_SETUID },
    { "setgid", K_SETGID },

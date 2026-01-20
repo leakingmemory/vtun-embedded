@@ -316,7 +316,6 @@ START_TEST(test_requires_client)
         " passwd x;\n"
         " type ether;\n"
         " proto tcp;\n"
-        " experimental yes;\n"
         " requires client;\n"
         "}\n";
     ck_assert_int_ne(0, read_config_from_string(cfg));
@@ -336,7 +335,6 @@ START_TEST(test_requires_bidirauth)
         " passwd x;\n"
         " type ether;\n"
         " proto tcp;\n"
-        " experimental yes;\n"
         " requires bidirauth;\n"
         "}\n";
     ck_assert_int_ne(0, read_config_from_string(cfg));
@@ -356,7 +354,6 @@ START_TEST(test_requires_3_1)
         " passwd x;\n"
         " type ether;\n"
         " proto tcp;\n"
-        " experimental yes;\n"
         " requires \"3.1\";\n"
         "}\n";
     ck_assert_int_ne(0, read_config_from_string(cfg));
@@ -376,7 +373,6 @@ START_TEST(test_requires_encryption)
         " passwd x;\n"
         " type ether;\n"
         " proto tcp;\n"
-        " experimental yes;\n"
         " requires encryption;\n"
         "}\n";
     ck_assert_int_ne(0, read_config_from_string(cfg));
@@ -396,7 +392,6 @@ START_TEST(test_requires_integrity)
         " passwd x;\n"
         " type ether;\n"
         " proto tcp;\n"
-        " experimental yes;\n"
         " requires integrity;\n"
         "}\n";
     ck_assert_int_ne(0, read_config_from_string(cfg));
@@ -416,7 +411,6 @@ START_TEST(test_requires_all)
         " passwd x;\n"
         " type ether;\n"
         " proto tcp;\n"
-        " experimental yes;\n"
         " requires client bidirauth \"3.1\" encryption integrity;\n"
         "}\n";
     ck_assert_int_ne(0, read_config_from_string(cfg));

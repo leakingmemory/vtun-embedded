@@ -38,7 +38,6 @@ static struct vtun_host *make_host(const char *host, const char *dev)
     h->spd_out = 5678;
     h->zlevel = 7;
     h->cipher = VTUN_ENC_AES256GCM;
-    h->experimental = 1;
     h->persist = VTUN_PERSIST;
     h->multi = VTUN_MULTI_ALLOW;
     h->ka_interval = 9;
@@ -70,7 +69,6 @@ static void assert_hosts_equal(const struct vtun_host *a, const struct vtun_host
     ck_assert_int_eq(a->spd_out, b->spd_out);
     ck_assert_int_eq(a->zlevel, b->zlevel);
     ck_assert_int_eq(a->cipher, b->cipher);
-    ck_assert_int_eq(a->experimental, b->experimental);
     ck_assert_int_eq(a->persist, b->persist);
     ck_assert_int_eq(a->multi, b->multi);
     ck_assert_int_eq(a->ka_interval, b->ka_interval);

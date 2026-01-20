@@ -211,10 +211,6 @@ option:  '\n'
 
   | K_SYSLOG  syslog_opt
 
-  | K_EXPERIMENTAL NUM {
-                    vtun.experimental = $2;
-                }
-
   | K_HARDENING hardening_opts
 
   | K_SETUID NUM {
@@ -294,13 +290,10 @@ syslog_opt:
 hardening_opt:
   WORD		{
     if (!strcmp($1, "setuid")) {
-        vtun_syslog(LOG_WARNING, "Hardening feature setuid is experimental.");
         vtun.setuid = 1;
     } else if (!strcmp($1, "setgid")) {
-        vtun_syslog(LOG_WARNING, "Hardening feature setgid is experimental.");
         vtun.setgid = 1;
     } else if (!strcmp($1, "dropcaps")) {
-        vtun_syslog(LOG_WARNING, "Hardening feature dropcaps is experimental.");
         if (!dropcaps_supported()) {
             cfg_error("Dropcaps is not supported on this platform.");
             YYABORT;
@@ -377,7 +370,6 @@ host_option: '\n'
 			     parse_host->flags &= ~VTUN_ENCRYPT;
 			}
   | K_ACCEPT_ENCRYPT accept_encrypt_opts {
-      vtun_syslog(LOG_WARNING, "accept_encrypt feature is experimental.");
   }
 
   | K_KALIVE 		{
@@ -435,9 +427,6 @@ host_option: '\n'
 			  parse_cmds = &parse_host->down; 
    			  llist_free(parse_cmds, free_cmd, NULL);   
 			} '{' command_options '}' 
-  | K_EXPERIMENTAL NUM {
-                    parse_host->experimental = $2;
-                }
   | K_REQUIRES requires_opts {
                     vtun_syslog(LOG_WARNING, "Requires feature is experimental.");
                 }
