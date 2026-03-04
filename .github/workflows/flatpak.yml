@@ -1,27 +1,44 @@
 name: Build & Upload Flatpak
 
 on:
-  push:
-    tags:
-      - 'flatp*'
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   flatpak:
     runs-on: ubuntu-22.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      version: ${{ steps.vars.outputs.version }}
 
     env:
       APP_ID: org.radiotube.vtun-embedded
-      VERSION: 3.1.0
       MANIFEST: flatpak/flatpak.json
       ARCH: x86_64
-      RUNTIME_VER: 25.08
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+
+      - name: Set VERSION from tag
+        id: vars
+        run: |
+          # Securely extract the tag name from the checked-out state
+          TAG=$(git describe --tags --exact-match)
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Install Flatpak tooling
         run: |
@@ -45,9 +62,27 @@ jobs:
                  --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
                  --arch=${ARCH}
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-bundle
+          path: "*.flatpak"
+
+  upload:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak-bundle
+
       - name: Upload .flatpak to release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "v${{ env.VERSION}}"
-          files: |
-            ${{ env.APP_ID }}-${{ env.VERSION }}.flatpak
+          tag_name: ${{ needs.build.outputs.tag }}
+          files: "*.flatpak"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
